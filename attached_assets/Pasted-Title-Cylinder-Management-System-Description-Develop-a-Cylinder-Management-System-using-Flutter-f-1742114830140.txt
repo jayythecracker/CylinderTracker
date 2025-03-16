@@ -1,0 +1,58 @@
+Title: Cylinder Management System
+Description:
+Develop a Cylinder Management System using Flutter (for mobile & web) with a self-hosted backend (e.g., Node.js with Express, Dart with Shelf, or Go). The system will manage factory operations, including user roles, cylinder tracking, gas filling, inspections, sales, and reporting.
+
+Core Features:
+1. User Management
+Roles: Admin, Manager, Filler, Seller
+Fields: Name, Email, Password (hashed), Contact, Address
+Authentication: JWT-based auth with role-based access
+2. Factory & Cylinder Management
+Factory: Cylinders are linked to their respective factory (Owner field).
+Cylinder Attributes:
+Size, Import Date, Production Date, Original Number
+Working Pressure, Design Pressure, Owner
+3. Customer Management
+Fields: Name, Type (Hospital, Individual, Shop, Factory, Workshop), Address, Contact
+Payment Type: Cash/Credit
+Price Group & Purchase History
+4. Gas Filling Process
+Filling Line Management:
+Each line supports a minimum of 10 cylinders
+Cylinders are scanned & filled based on their type (Medical/Industrial)
+QR-based tracking
+Tracks StartedBy & EndedBy users
+Cylinder Status Updates:
+Success: Status → Full
+Failed: Status → Error
+5. Inspection Process
+Scans cylinders to fetch last filling details
+Actions:
+Approve all
+Approve selected
+Reject (based on pressure levels)
+6. Cylinder Sales & Delivery
+Delivery Options:
+By Truck:
+Trucks have a separate model (License No, Type, Owner, Status)
+Cylinders are scanned before loading
+After delivery, customer scans to confirm & signs receipt
+Customer Pickup:
+Customer selects & scans cylinders
+Returns Handling:
+Customers can return empty cylinders
+7. Maintenance & Repairs
+Error cylinders can be repaired & status updated
+8. Reports & Monitoring
+Daily, Monthly, Periodic Reports for tracking operations
+Tech Stack:
+Frontend:
+✅ Flutter (for mobile & web)
+✅ Riverpod (State Management)
+✅ QR Code Scanner Integration
+
+Backend:
+✅ Node.js (Express) / Dart (Shelf) / Go
+✅ PostgreSQL / MySQL / MongoDB (for storage)
+✅ JWT for Authentication
+✅ REST API / WebSockets (for real-time updates)
