@@ -1,239 +1,140 @@
-import 'package:cylinder_management/models/cylinder.dart';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:cylinder_management/models/filling_operation.dart';
+import 'package:cylinder_management/models/cylinder.dart';
 import 'package:cylinder_management/models/inspection.dart';
 import 'package:cylinder_management/models/sale.dart';
 import 'package:cylinder_management/services/websocket_service.dart';
-import 'package:flutter/foundation.dart';
 
-/// WebSocketManager is responsible for handling domain-specific WebSocket events
-/// and translating them into application events
+typedef WebSocketEventCallback = void Function(dynamic data);
+
+/// A class to manage WebSocket event listeners and handle parsing of specific event types
 class WebSocketManager {
-  final WebSocketService _webSocketService;
-  
-  // Event callbacks
-  final Map<String, List<Function(dynamic)>> _eventCallbacks = {};
-
-  // Common event types in the system
+  // Event type constants
   static const String cylinderCreated = 'cylinder_created';
   static const String cylinderUpdated = 'cylinder_updated';
   static const String cylinderDeleted = 'cylinder_deleted';
   static const String cylinderStatusUpdated = 'cylinder_status_updated';
+  
   static const String fillingStarted = 'filling_started';
   static const String fillingCompleted = 'filling_completed';
+  
   static const String inspectionCompleted = 'inspection_completed';
+  
   static const String saleCreated = 'sale_created';
   static const String saleStatusUpdated = 'sale_status_updated';
   
+  final WebSocketService _webSocketService;
+  final Map<String, List<WebSocketEventCallback>> _eventListeners = {};
+
   WebSocketManager(this._webSocketService) {
-    _setupEventHandlers();
+    _webSocketService.addMessageListener(_handleMessage);
   }
-  
-  /// Connect to the WebSocket server
+
+  // Connect to the WebSocket server
   void connect() {
     _webSocketService.connect();
   }
   
-  /// Register event handlers for specific WebSocket events
-  void _setupEventHandlers() {
-    // Cylinder events
-    _webSocketService.on(cylinderCreated, _handleCylinderCreated);
-    _webSocketService.on(cylinderUpdated, _handleCylinderUpdated);
-    _webSocketService.on(cylinderDeleted, _handleCylinderDeleted);
-    _webSocketService.on(cylinderStatusUpdated, _handleCylinderStatusUpdated);
-    
-    // Filling operation events
-    _webSocketService.on(fillingStarted, _handleFillingStarted);
-    _webSocketService.on(fillingCompleted, _handleFillingCompleted);
-    
-    // Inspection events
-    _webSocketService.on(inspectionCompleted, _handleInspectionCompleted);
-    
-    // Sale events
-    _webSocketService.on(saleCreated, _handleSaleCreated);
-    _webSocketService.on(saleStatusUpdated, _handleSaleStatusUpdated);
-  }
-  
-  /// Register a callback for a specific event type
-  void on(String eventType, Function(dynamic) callback) {
-    if (!_eventCallbacks.containsKey(eventType)) {
-      _eventCallbacks[eventType] = [];
-    }
-    _eventCallbacks[eventType]!.add(callback);
-  }
-  
-  /// Unregister a callback for a specific event type
-  void off(String eventType, Function(dynamic) callback) {
-    if (_eventCallbacks.containsKey(eventType)) {
-      _eventCallbacks[eventType]!.remove(callback);
-    }
-  }
-  
-  /// Trigger event callbacks for a specific event type
-  void _trigger(String eventType, dynamic data) {
-    if (_eventCallbacks.containsKey(eventType)) {
-      for (final callback in _eventCallbacks[eventType]!) {
-        callback(data);
-      }
-    }
-  }
-  
-  // Event handler methods
-  
-  void _handleCylinderCreated(dynamic data) {
-    try {
-      final cylinder = Cylinder.fromJson(data);
-      _trigger(cylinderCreated, cylinder);
-      if (kDebugMode) {
-        print('Cylinder created: ${cylinder.serialNumber}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling cylinder_created event: $e');
-      }
-    }
-  }
-  
-  void _handleCylinderUpdated(dynamic data) {
-    try {
-      final cylinder = Cylinder.fromJson(data);
-      _trigger(cylinderUpdated, cylinder);
-      if (kDebugMode) {
-        print('Cylinder updated: ${cylinder.serialNumber}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling cylinder_updated event: $e');
-      }
-    }
-  }
-  
-  void _handleCylinderDeleted(dynamic data) {
-    try {
-      final cylinderId = data['id'];
-      _trigger(cylinderDeleted, cylinderId);
-      if (kDebugMode) {
-        print('Cylinder deleted: $cylinderId');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling cylinder_deleted event: $e');
-      }
-    }
-  }
-  
-  void _handleCylinderStatusUpdated(dynamic data) {
-    try {
-      final cylinderId = data['id'];
-      final status = data['status'];
-      final notes = data['notes'];
-      
-      _trigger(cylinderStatusUpdated, {
-        'id': cylinderId,
-        'status': status,
-        'notes': notes,
-      });
-      
-      if (kDebugMode) {
-        print('Cylinder status updated: Cylinder #$cylinderId -> $status');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling cylinder_status_updated event: $e');
-      }
-    }
-  }
-  
-  void _handleFillingStarted(dynamic data) {
-    try {
-      final filling = FillingOperation.fromJson(data);
-      _trigger(fillingStarted, filling);
-      if (kDebugMode) {
-        print('Filling started: Cylinder #${filling.cylinderId}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling filling_started event: $e');
-      }
-    }
-  }
-  
-  void _handleFillingCompleted(dynamic data) {
-    try {
-      final filling = FillingOperation.fromJson(data);
-      _trigger(fillingCompleted, filling);
-      if (kDebugMode) {
-        print('Filling completed: Cylinder #${filling.cylinderId}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling filling_completed event: $e');
-      }
-    }
-  }
-  
-  void _handleInspectionCompleted(dynamic data) {
-    try {
-      final inspection = Inspection.fromJson(data);
-      _trigger(inspectionCompleted, inspection);
-      if (kDebugMode) {
-        print('Inspection completed: Cylinder #${inspection.cylinderId}, Result: ${inspection.result}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling inspection_completed event: $e');
-      }
-    }
-  }
-  
-  void _handleSaleCreated(dynamic data) {
-    try {
-      final sale = Sale.fromJson(data);
-      _trigger(saleCreated, sale);
-      if (kDebugMode) {
-        print('Sale created: #${sale.id}, Customer: ${sale.customerId}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling sale_created event: $e');
-      }
-    }
-  }
-  
-  void _handleSaleStatusUpdated(dynamic data) {
-    try {
-      final saleId = data['id'];
-      final status = data['status'];
-      final notes = data['notes'];
-      
-      _trigger(saleStatusUpdated, {
-        'id': saleId,
-        'status': status,
-        'notes': notes,
-      });
-      
-      if (kDebugMode) {
-        print('Sale status updated: Sale #$saleId -> $status');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error handling sale_status_updated event: $e');
-      }
-    }
-  }
-  
-  /// Disconnect from the WebSocket server
+  // Disconnect from the WebSocket server
   void disconnect() {
     _webSocketService.disconnect();
   }
   
-  /// Reconnect to the WebSocket server
-  void reconnect() {
-    _webSocketService.reconnect();
+  // Check if connected to the WebSocket server
+  bool get isConnected => _webSocketService.isConnected;
+
+  /// Add a listener for a specific event type
+  void on(String eventType, WebSocketEventCallback callback) {
+    _eventListeners[eventType] ??= [];
+    _eventListeners[eventType]!.add(callback);
+  }
+
+  /// Remove a listener for a specific event type
+  void off(String eventType, WebSocketEventCallback callback) {
+    if (_eventListeners.containsKey(eventType)) {
+      _eventListeners[eventType]!.remove(callback);
+      if (_eventListeners[eventType]!.isEmpty) {
+        _eventListeners.remove(eventType);
+      }
+    }
+  }
+
+  /// Handle incoming WebSocket messages and dispatch to the appropriate listeners
+  void _handleMessage(String message) {
+    try {
+      final data = jsonDecode(message);
+      final type = data['type'];
+      final payload = data['data'];
+      
+      if (type != null && _eventListeners.containsKey(type)) {
+        // Parse the payload based on the event type
+        final parsedPayload = _parsePayload(type, payload);
+        
+        // Notify all listeners for this event type
+        for (final callback in _eventListeners[type]!) {
+          callback(parsedPayload);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling WebSocket message: $e');
+      }
+    }
+  }
+
+  /// Parse the payload based on the event type
+  dynamic _parsePayload(String type, dynamic payload) {
+    switch (type) {
+      case cylinderCreated:
+      case cylinderUpdated:
+        return Cylinder.fromJson(payload);
+        
+      case cylinderDeleted:
+      case cylinderStatusUpdated:
+        // These events have simple payloads, no need to parse
+        return payload;
+        
+      case fillingStarted:
+      case fillingCompleted:
+        return FillingOperation.fromJson(payload);
+        
+      case inspectionCompleted:
+        return Inspection.fromJson(payload);
+        
+      case saleCreated:
+        return Sale.fromJson(payload);
+        
+      case saleStatusUpdated:
+        // This event has a simple payload, no need to parse
+        return payload;
+        
+      default:
+        // For unknown event types, return the raw payload
+        return payload;
+    }
   }
   
-  /// Get connection status
-  bool get isConnected => _webSocketService.isConnected;
+  /// Send a message to the WebSocket server
+  void send(String type, dynamic data) {
+    if (!_webSocketService.isConnected) {
+      if (kDebugMode) {
+        print('Cannot send message: WebSocket is not connected');
+      }
+      return;
+    }
+    
+    final message = jsonEncode({
+      'type': type,
+      'data': data,
+    });
+    
+    _webSocketService.send(message);
+  }
   
-  /// Get error message
-  String? get errorMessage => _webSocketService.errorMessage;
+  /// Clean up resources when the manager is no longer needed
+  void dispose() {
+    _webSocketService.removeMessageListener(_handleMessage);
+    _eventListeners.clear();
+  }
 }

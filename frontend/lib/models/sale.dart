@@ -1,120 +1,63 @@
 import 'package:cylinder_management/models/customer.dart';
-import 'package:cylinder_management/models/cylinder.dart';
-import 'package:cylinder_management/models/truck.dart';
-import 'package:cylinder_management/models/user.dart';
-
-class SaleCylinder {
-  final int id;
-  final int quantity;
-  final Cylinder? cylinder;
-
-  SaleCylinder({
-    required this.id,
-    required this.quantity,
-    this.cylinder,
-  });
-
-  factory SaleCylinder.fromJson(Map<String, dynamic> json) {
-    return SaleCylinder(
-      id: json['id'],
-      quantity: json['quantity'],
-      cylinder: json['cylinder'] != null ? Cylinder.fromJson(json['cylinder']) : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'quantity': quantity,
-      'cylinderId': cylinder?.id,
-    };
-  }
-}
 
 class Sale {
   final int id;
   final int customerId;
-  final int sellerId;
   final DateTime saleDate;
-  final String deliveryMethod; // Pickup, Delivery
-  final int? truckId;
   final double totalAmount;
-  final String paymentStatus; // Paid, Pending, Partial
   final double paidAmount;
-  final String deliveryStatus; // Pending, InTransit, Delivered, Cancelled
-  final DateTime? deliveryDate;
-  final String? signatureImage;
+  final String status; // Pending, Delivered, Completed, Cancelled
+  final String paymentStatus; // Unpaid, Partially Paid, Paid
+  final String deliveryType; // Pickup, Delivery
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
   
   // Optional nested objects
   final Customer? customer;
-  final User? seller;
-  final Truck? truck;
-  final List<SaleCylinder>? cylinders;
 
   Sale({
     required this.id,
     required this.customerId,
-    required this.sellerId,
     required this.saleDate,
-    required this.deliveryMethod,
-    this.truckId,
     required this.totalAmount,
-    required this.paymentStatus,
     required this.paidAmount,
-    required this.deliveryStatus,
-    this.deliveryDate,
-    this.signatureImage,
+    required this.status,
+    required this.paymentStatus,
+    required this.deliveryType,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
     this.customer,
-    this.seller,
-    this.truck,
-    this.cylinders,
   });
 
   // Factory method to create a Sale from JSON
   factory Sale.fromJson(Map<String, dynamic> json) {
-    List<SaleCylinder>? cylinderList;
-    if (json['cylinders'] != null) {
-      cylinderList = (json['cylinders'] as List)
-          .map((item) => SaleCylinder.fromJson(item))
-          .toList();
-    }
-
     return Sale(
       id: json['id'],
       customerId: json['customerId'],
-      sellerId: json['sellerId'],
-      saleDate: DateTime.parse(json['saleDate']),
-      deliveryMethod: json['deliveryMethod'],
-      truckId: json['truckId'],
+      saleDate: json['saleDate'] != null 
+          ? DateTime.parse(json['saleDate']) 
+          : DateTime.now(),
       totalAmount: json['totalAmount'] is int 
-        ? json['totalAmount'].toDouble() 
-        : json['totalAmount'],
-      paymentStatus: json['paymentStatus'],
+          ? json['totalAmount'].toDouble() 
+          : json['totalAmount'],
       paidAmount: json['paidAmount'] is int 
-        ? json['paidAmount'].toDouble() 
-        : json['paidAmount'],
-      deliveryStatus: json['deliveryStatus'],
-      deliveryDate: json['deliveryDate'] != null 
-        ? DateTime.parse(json['deliveryDate']) 
-        : null,
-      signatureImage: json['signatureImage'],
+          ? json['paidAmount'].toDouble() 
+          : json['paidAmount'],
+      status: json['status'],
+      paymentStatus: json['paymentStatus'],
+      deliveryType: json['deliveryType'],
       notes: json['notes'],
       createdAt: json['createdAt'] != null 
-        ? DateTime.parse(json['createdAt']) 
-        : DateTime.now(),
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
       updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt']) 
-        : DateTime.now(),
-      customer: json['customer'] != null ? Customer.fromJson(json['customer']) : null,
-      seller: json['seller'] != null ? User.fromJson(json['seller']) : null,
-      truck: json['truck'] != null ? Truck.fromJson(json['truck']) : null,
-      cylinders: cylinderList,
+          ? DateTime.parse(json['updatedAt']) 
+          : DateTime.now(),
+      customer: json['customer'] != null 
+          ? Customer.fromJson(json['customer']) 
+          : null,
     );
   }
 
@@ -123,17 +66,14 @@ class Sale {
     return {
       'id': id,
       'customerId': customerId,
-      'sellerId': sellerId,
       'saleDate': saleDate.toIso8601String(),
-      'deliveryMethod': deliveryMethod,
-      'truckId': truckId,
       'totalAmount': totalAmount,
-      'paymentStatus': paymentStatus,
       'paidAmount': paidAmount,
-      'deliveryStatus': deliveryStatus,
-      'deliveryDate': deliveryDate?.toIso8601String(),
-      'signatureImage': signatureImage,
+      'status': status,
+      'paymentStatus': paymentStatus,
+      'deliveryType': deliveryType,
       'notes': notes,
+      // Nested customer is not included in JSON for API requests
     };
   }
 
@@ -141,85 +81,58 @@ class Sale {
   Sale copyWith({
     int? id,
     int? customerId,
-    int? sellerId,
     DateTime? saleDate,
-    String? deliveryMethod,
-    int? truckId,
     double? totalAmount,
-    String? paymentStatus,
     double? paidAmount,
-    String? deliveryStatus,
-    DateTime? deliveryDate,
-    String? signatureImage,
+    String? status,
+    String? paymentStatus,
+    String? deliveryType,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
     Customer? customer,
-    User? seller,
-    Truck? truck,
-    List<SaleCylinder>? cylinders,
   }) {
     return Sale(
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
-      sellerId: sellerId ?? this.sellerId,
       saleDate: saleDate ?? this.saleDate,
-      deliveryMethod: deliveryMethod ?? this.deliveryMethod,
-      truckId: truckId ?? this.truckId,
       totalAmount: totalAmount ?? this.totalAmount,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
       paidAmount: paidAmount ?? this.paidAmount,
-      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
-      deliveryDate: deliveryDate ?? this.deliveryDate,
-      signatureImage: signatureImage ?? this.signatureImage,
+      status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      deliveryType: deliveryType ?? this.deliveryType,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       customer: customer ?? this.customer,
-      seller: seller ?? this.seller,
-      truck: truck ?? this.truck,
-      cylinders: cylinders ?? this.cylinders,
     );
   }
 
-  // Create a Sale for new Sale form (for create operation)
+  // Empty sale for form initialization
   factory Sale.empty() {
     return Sale(
       id: 0,
       customerId: 0,
-      sellerId: 0,
       saleDate: DateTime.now(),
-      deliveryMethod: 'Pickup',
       totalAmount: 0.0,
-      paymentStatus: 'Pending',
       paidAmount: 0.0,
-      deliveryStatus: 'Pending',
+      status: 'Pending',
+      paymentStatus: 'Unpaid',
+      deliveryType: 'Delivery',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
   }
 
   // Helper methods
+  bool get isPending => status == 'Pending';
+  bool get isDelivered => status == 'Delivered';
+  bool get isCompleted => status == 'Completed';
+  bool get isCancelled => status == 'Cancelled';
+  
+  bool get isUnpaid => paymentStatus == 'Unpaid';
+  bool get isPartiallyPaid => paymentStatus == 'Partially Paid';
   bool get isPaid => paymentStatus == 'Paid';
-  bool get isPartiallyPaid => paymentStatus == 'Partial';
-  bool get isPending => paymentStatus == 'Pending';
-  
-  bool get isDelivered => deliveryStatus == 'Delivered';
-  bool get isInTransit => deliveryStatus == 'InTransit';
-  bool get isCancelled => deliveryStatus == 'Cancelled';
-  
-  bool get isPickup => deliveryMethod == 'Pickup';
-  bool get isDelivery => deliveryMethod == 'Delivery';
-  
-  double get remainingAmount => totalAmount - paidAmount;
-  
-  int get cylinderCount {
-    if (cylinders == null) return 0;
-    
-    int count = 0;
-    for (var cylinder in cylinders!) {
-      count += cylinder.quantity;
-    }
-    return count;
-  }
+
+  double get balanceDue => totalAmount - paidAmount;
 }

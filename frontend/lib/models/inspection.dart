@@ -1,39 +1,26 @@
-import 'package:cylinder_management/models/cylinder.dart';
-import 'package:cylinder_management/models/user.dart';
-
 class Inspection {
   final int id;
   final int cylinderId;
-  final int inspectedById;
   final DateTime inspectionDate;
-  final double pressureCheck;
-  final bool visualCheck;
-  final bool valveCheck;
+  final int inspectedById;
+  final bool visualInspection;
+  final double? pressureReading;
   final String result; // Approved, Rejected
-  final String? rejectionReason;
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
-  // Optional nested objects
-  final Cylinder? cylinder;
-  final User? inspectedBy;
 
   Inspection({
     required this.id,
     required this.cylinderId,
-    required this.inspectedById,
     required this.inspectionDate,
-    required this.pressureCheck,
-    required this.visualCheck,
-    required this.valveCheck,
+    required this.inspectedById,
+    required this.visualInspection,
+    this.pressureReading,
     required this.result,
-    this.rejectionReason,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
-    this.cylinder,
-    this.inspectedBy,
   });
 
   // Factory method to create an Inspection from JSON
@@ -41,24 +28,24 @@ class Inspection {
     return Inspection(
       id: json['id'],
       cylinderId: json['cylinderId'],
+      inspectionDate: json['inspectionDate'] != null 
+          ? DateTime.parse(json['inspectionDate']) 
+          : DateTime.now(),
       inspectedById: json['inspectedById'],
-      inspectionDate: DateTime.parse(json['inspectionDate']),
-      pressureCheck: json['pressureCheck'] is int 
-        ? json['pressureCheck'].toDouble() 
-        : json['pressureCheck'],
-      visualCheck: json['visualCheck'],
-      valveCheck: json['valveCheck'],
+      visualInspection: json['visualInspection'] ?? false,
+      pressureReading: json['pressureReading'] != null
+          ? (json['pressureReading'] is int
+              ? json['pressureReading'].toDouble()
+              : json['pressureReading'])
+          : null,
       result: json['result'],
-      rejectionReason: json['rejectionReason'],
       notes: json['notes'],
       createdAt: json['createdAt'] != null 
-        ? DateTime.parse(json['createdAt']) 
-        : DateTime.now(),
+          ? DateTime.parse(json['createdAt']) 
+          : DateTime.now(),
       updatedAt: json['updatedAt'] != null 
-        ? DateTime.parse(json['updatedAt']) 
-        : DateTime.now(),
-      cylinder: json['cylinder'] != null ? Cylinder.fromJson(json['cylinder']) : null,
-      inspectedBy: json['inspectedBy'] != null ? User.fromJson(json['inspectedBy']) : null,
+          ? DateTime.parse(json['updatedAt']) 
+          : DateTime.now(),
     );
   }
 
@@ -67,14 +54,14 @@ class Inspection {
     return {
       'id': id,
       'cylinderId': cylinderId,
-      'inspectedById': inspectedById,
       'inspectionDate': inspectionDate.toIso8601String(),
-      'pressureCheck': pressureCheck,
-      'visualCheck': visualCheck,
-      'valveCheck': valveCheck,
+      'inspectedById': inspectedById,
+      'visualInspection': visualInspection,
+      'pressureReading': pressureReading,
       'result': result,
-      'rejectionReason': rejectionReason,
       'notes': notes,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
@@ -82,59 +69,46 @@ class Inspection {
   Inspection copyWith({
     int? id,
     int? cylinderId,
-    int? inspectedById,
     DateTime? inspectionDate,
-    double? pressureCheck,
-    bool? visualCheck,
-    bool? valveCheck,
+    int? inspectedById,
+    bool? visualInspection,
+    double? pressureReading,
     String? result,
-    String? rejectionReason,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
-    Cylinder? cylinder,
-    User? inspectedBy,
   }) {
     return Inspection(
       id: id ?? this.id,
       cylinderId: cylinderId ?? this.cylinderId,
-      inspectedById: inspectedById ?? this.inspectedById,
       inspectionDate: inspectionDate ?? this.inspectionDate,
-      pressureCheck: pressureCheck ?? this.pressureCheck,
-      visualCheck: visualCheck ?? this.visualCheck,
-      valveCheck: valveCheck ?? this.valveCheck,
+      inspectedById: inspectedById ?? this.inspectedById,
+      visualInspection: visualInspection ?? this.visualInspection,
+      pressureReading: pressureReading ?? this.pressureReading,
       result: result ?? this.result,
-      rejectionReason: rejectionReason ?? this.rejectionReason,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      cylinder: cylinder ?? this.cylinder,
-      inspectedBy: inspectedBy ?? this.inspectedBy,
     );
   }
 
-  // Create an Inspection for new Inspection form (for create operation)
+  // Helper method to check if the inspection was approved
+  bool get isApproved => result == 'Approved';
+
+  // Helper method to check if the inspection was rejected
+  bool get isRejected => result == 'Rejected';
+
+  // Empty inspection for form initialization
   factory Inspection.empty() {
     return Inspection(
       id: 0,
       cylinderId: 0,
-      inspectedById: 0,
       inspectionDate: DateTime.now(),
-      pressureCheck: 0.0,
-      visualCheck: false,
-      valveCheck: false,
+      inspectedById: 0,
+      visualInspection: false,
       result: 'Approved',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
   }
-
-  // Helper method to check if inspection was approved
-  bool get isApproved => result == 'Approved';
-
-  // Helper method to check if inspection was rejected
-  bool get isRejected => result == 'Rejected';
-
-  // Helper method to check if all checks passed
-  bool get allChecksPassed => visualCheck && valveCheck;
 }

@@ -1,61 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cylinder_management/config/app_config.dart';
-import 'package:cylinder_management/models/filling_line.dart';
-import 'package:cylinder_management/providers/auth_provider.dart';
-import 'package:cylinder_management/screens/filling/filling_line_screen.dart';
-import 'package:cylinder_management/screens/filling/filling_history_screen.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:cylinder_management/models/cylinder.dart';
+import 'package:cylinder_management/models/filling_operation.dart';
+import 'package:cylinder_management/widgets/websocket_status_widget.dart';
+import 'package:cylinder_management/providers/services_provider.dart';
+import 'package:cylinder_management/services/websocket_manager.dart';
 
-final fillingLinesProvider = FutureProvider<List<FillingLine>>((ref) async {
-  try {
-    final authState = ref.watch(authProvider);
-    final user = authState.value;
-    
-    if (user == null) {
-      throw Exception('Not authenticated');
-    }
-    
-    final url = Uri.parse('${AppConfig.baseUrl}/fillings/lines');
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${await ref.read(authProvider.notifier)._authService.getToken()}',
-      },
-    );
-    
-    if (response.statusCode == 200) {
-      final jsonData = json.decode(response.body);
-      if (jsonData['success']) {
-        final List<dynamic> linesData = jsonData['data'];
-        return linesData.map((line) => FillingLine.fromJson(line)).toList();
-      } else {
-        throw Exception(jsonData['message'] ?? 'Failed to fetch filling lines');
-      }
-    } else {
-      throw Exception('Failed to fetch filling lines: ${response.statusCode}');
-    }
-  } catch (e) {
-    throw Exception('Error fetching filling lines: $e');
-  }
-});
-
-class FillingScreen extends ConsumerStatefulWidget {
+class FillingScreen extends StatefulWidget {
   const FillingScreen({Key? key}) : super(key: key);
 
   @override
-  ConsumerState<FillingScreen> createState() => _FillingScreenState();
+  State<FillingScreen> createState() => _FillingScreenState();
 }
 
-class _FillingScreenState extends ConsumerState<FillingScreen> with SingleTickerProviderStateMixin {
+class _FillingScreenState extends State<FillingScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // List of active filling operations
+  final List<FillingOperation> _activeFillings = [];
+  
+  // List of recent filling operations
+  final List<FillingOperation> _recentFillings = [];
+  
+  bool _isLoading = true;
+  String? _errorMessage;
   
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadData();
+    _setupWebSocketListeners();
   }
   
   @override
@@ -63,532 +37,370 @@ class _FillingScreenState extends ConsumerState<FillingScreen> with SingleTicker
     _tabController.dispose();
     super.dispose();
   }
-
+  
+  // Set up WebSocket listeners for real-time updates
+  void _setupWebSocketListeners() {
+    final webSocketManager = ServicesProvider.websocketManager(context);
+    
+    // Listen for filling started
+    webSocketManager.on(WebSocketManager.fillingStarted, (filling) {
+      setState(() {
+        _activeFillings.add(filling);
+      });
+    });
+    
+    // Listen for filling completed
+    webSocketManager.on(WebSocketManager.fillingCompleted, (filling) {
+      setState(() {
+        // Remove from active fillings if present
+        _activeFillings.removeWhere((f) => f.id == filling.id);
+        
+        // Add to recent fillings
+        _recentFillings.insert(0, filling);
+        
+        // Keep only the 20 most recent ones
+        if (_recentFillings.length > 20) {
+          _recentFillings.removeLast();
+        }
+      });
+    });
+  }
+  
+  // Load initial data
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      // Fetch active filling operations
+      final apiService = ServicesProvider.api(context);
+      
+      // TODO: Replace with actual API calls once implemented
+      // final activeFillingResponse = await apiService.getFillingOperations(status: 'InProgress');
+      // final recentFillingResponse = await apiService.getFillingOperations(limit: 20);
+      
+      // For now, use sample data
+      await Future.delayed(const Duration(seconds: 1));
+      
+      setState(() {
+        _activeFillings.clear();
+        _recentFillings.clear();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load filling operations: $e';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  // Start a new filling operation
+  Future<void> _startFilling(Cylinder cylinder) async {
+    // TODO: Implement start filling API call
+  }
+  
+  // Complete an active filling operation
+  Future<void> _completeFilling(FillingOperation filling, double finalPressure) async {
+    // TODO: Implement complete filling API call
+  }
+  
   @override
   Widget build(BuildContext context) {
-    final fillingLines = ref.watch(fillingLinesProvider);
-    
     return Scaffold(
-      body: Column(
-        children: [
-          // Tab Bar
-          Container(
-            color: AppConfig.primaryColor,
-            child: TabBar(
-              controller: _tabController,
-              indicatorColor: Colors.white,
-              tabs: const [
-                Tab(
-                  icon: Icon(Icons.local_gas_station),
-                  text: 'Filling Lines',
-                ),
-                Tab(
-                  icon: Icon(Icons.history),
-                  text: 'Filling History',
-                ),
-              ],
-            ),
-          ),
-          
-          // Tab View
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // Filling Lines Tab
-                _buildFillingLinesTab(fillingLines),
-                
-                // Filling History Tab
-                const FillingHistoryScreen(),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text('Filling Operations'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Active Fillings'),
+            Tab(text: 'Recent Fillings'),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+            tooltip: 'Refresh',
           ),
         ],
       ),
-      floatingActionButton: _tabController.index == 0
-          ? FloatingActionButton(
-              onPressed: () {
-                _showCreateLineDialog(context);
-              },
-              backgroundColor: AppConfig.accentColor,
-              child: const Icon(Icons.add),
-            )
-          : null,
-    );
-  }
-
-  Widget _buildFillingLinesTab(AsyncValue<List<FillingLine>> fillingLines) {
-    return fillingLines.when(
-      data: (lines) {
-        if (lines.isEmpty) {
-          return _buildEmptyState();
-        }
-        
-        return RefreshIndicator(
-          onRefresh: () async {
-            return ref.refresh(fillingLinesProvider);
-          },
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: lines.length,
-            itemBuilder: (context, index) {
-              final line = lines[index];
-              return _buildFillingLineCard(context, line);
-            },
-          ),
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(),
-      ),
-      error: (error, stackTrace) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Error loading filling lines',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error.toString(),
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                ref.refresh(fillingLinesProvider);
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFillingLineCard(BuildContext context, FillingLine line) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => FillingLineScreen(lineId: line.id),
-            ),
-          );
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error: $_errorMessage',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                      ElevatedButton(
+                        onPressed: _loadData,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  children: [
+                    // WebSocket status widget at the top
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: WebSocketStatusWidget(),
+                    ),
+                    
+                    // Tab views
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // Active fillings tab
+                          _activeFillings.isEmpty
+                              ? const Center(child: Text('No active filling operations'))
+                              : ListView.builder(
+                                  itemCount: _activeFillings.length,
+                                  itemBuilder: (context, index) => _buildFillingCard(
+                                    _activeFillings[index],
+                                    isActive: true,
+                                  ),
+                                ),
+                          
+                          // Recent fillings tab
+                          _recentFillings.isEmpty
+                              ? const Center(child: Text('No recent filling operations'))
+                              : ListView.builder(
+                                  itemCount: _recentFillings.length,
+                                  itemBuilder: (context, index) => _buildFillingCard(
+                                    _recentFillings[index],
+                                    isActive: false,
+                                  ),
+                                ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Show dialog to start a new filling operation
+          _showStartFillingDialog();
         },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Line header with status indicator
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: line.isActive
-                          ? Colors.green
-                          : Colors.grey,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      line.isActive ? 'Active' : 'Inactive',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+        child: const Icon(Icons.add),
+        tooltip: 'Start New Filling',
+      ),
+    );
+  }
+  
+  // Build a card for a filling operation
+  Widget _buildFillingCard(FillingOperation filling, {required bool isActive}) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Filling #${filling.id}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Line ${line.id}',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isActive ? Colors.blue : Colors.green,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.play_arrow),
-                    color: Colors.green,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FillingLineScreen(lineId: line.id),
-                        ),
-                      );
-                    },
-                    tooltip: 'Start Filling',
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Line details
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildStatColumn(
-                    'Capacity',
-                    '${line.capacity} cylinders',
-                    Icons.view_module,
-                  ),
-                  _buildStatColumn(
-                    'Current Load',
-                    '${line.currentCylinders} cylinders',
-                    Icons.apps,
-                  ),
-                  _buildStatColumn(
-                    'Type',
-                    line.type,
-                    Icons.category,
-                  ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Progress indicator
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Filling Progress: ${line.isActive && line.currentCylinders > 0 ? '${line.progressPercentage.toInt()}%' : 'Not Started'}',
+                  child: Text(
+                    isActive ? 'In Progress' : 'Completed',
                     style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  LinearProgressIndicator(
-                    value: line.isActive && line.currentCylinders > 0
-                        ? line.progressPercentage / 100
-                        : 0,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      line.isActive ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              
-              if (line.currentCylinders > 0) ...[
-                const SizedBox(height: 16),
-                
-                // Time details if active
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: _buildTimeInfo(
-                        'Started',
-                        line.startTime != null
-                            ? _formatTime(line.startTime!)
-                            : 'N/A',
-                        Icons.play_circle_outline,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildTimeInfo(
-                        'Est. Completion',
-                        line.estimatedEndTime != null
-                            ? _formatTime(line.estimatedEndTime!)
-                            : 'N/A',
-                        Icons.timer,
-                      ),
-                    ),
-                  ],
                 ),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text('Cylinder: #${filling.cylinderId}'),
+            Text('Gas Type: ${filling.gasType}'),
+            Text('Filled By: User #${filling.filledById}'),
+            Text('Date: ${_formatDate(filling.fillingDate)}'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Initial Pressure'),
+                      Text(
+                        '${filling.initialPressure} bar',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Final Pressure'),
+                      Text(
+                        filling.finalPressure != null
+                            ? '${filling.finalPressure} bar'
+                            : 'Pending',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: filling.finalPressure != null
+                              ? Colors.green
+                              : Colors.orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (filling.notes != null && filling.notes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Notes: ${filling.notes}'),
             ],
-          ),
+            if (isActive) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  // Show dialog to complete the filling operation
+                  _showCompleteFillingDialog(filling);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  minimumSize: const Size(double.infinity, 40),
+                ),
+                child: const Text('Complete Filling'),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
-
-  Widget _buildStatColumn(String title, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          color: AppConfig.primaryColor,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 12,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
+  
+  // Format a date for display
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
-
-  Widget _buildTimeInfo(String title, String time, IconData icon) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Colors.grey[600],
-        ),
-        const SizedBox(width: 4),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  
+  // Show dialog to start a new filling operation
+  void _showStartFillingDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start New Filling'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
-              ),
-            ),
-            Text(
-              time,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            // TODO: Implement form for starting new filling
+            const Text('Form for starting new filling operation will be implemented here.'),
           ],
         ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.local_gas_station_outlined,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No Filling Lines Found',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[700],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Create a new filling line to start',
-            style: TextStyle(
-              color: Colors.grey[600],
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
+        actions: [
+          TextButton(
             onPressed: () {
-              _showCreateLineDialog(context);
+              Navigator.of(context).pop();
             },
-            icon: const Icon(Icons.add),
-            label: const Text('Create Filling Line'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement start filling logic
+              Navigator.of(context).pop();
+            },
+            child: const Text('Start Filling'),
           ),
         ],
       ),
     );
   }
-
-  void _showCreateLineDialog(BuildContext context) {
-    final formKey = GlobalKey<FormState>();
-    int capacity = 10;
-    String type = 'Industrial';
+  
+  // Show dialog to complete a filling operation
+  void _showCompleteFillingDialog(FillingOperation filling) {
+    final finalPressureController = TextEditingController();
+    final notesController = TextEditingController();
     
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Create New Filling Line'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Capacity field
-                TextFormField(
-                  decoration: const InputDecoration(
-                    labelText: 'Capacity',
-                    hintText: 'Number of cylinders',
-                    prefixIcon: Icon(Icons.view_module),
-                  ),
-                  keyboardType: TextInputType.number,
-                  initialValue: '10',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter capacity';
-                    }
-                    final number = int.tryParse(value);
-                    if (number == null || number < 1) {
-                      return 'Enter a valid capacity';
-                    }
-                    return null;
-                  },
-                  onSaved: (value) {
-                    capacity = int.parse(value!);
-                  },
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Type dropdown
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Type',
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  value: type,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'Industrial',
-                      child: Text('Industrial'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Medical',
-                      child: Text('Medical'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      type = value;
-                    }
-                  },
-                ),
-              ],
+      builder: (context) => AlertDialog(
+        title: const Text('Complete Filling'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Cylinder: #${filling.cylinderId}'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: finalPressureController,
+              decoration: const InputDecoration(
+                labelText: 'Final Pressure (bar)',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  formKey.currentState?.save();
-                  
-                  _createFillingLine(context, capacity, type);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Create'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notes',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
             ),
           ],
-        );
-      },
-    );
-  }
-
-  Future<void> _createFillingLine(
-    BuildContext context,
-    int capacity,
-    String type,
-  ) async {
-    try {
-      final url = Uri.parse('${AppConfig.baseUrl}/fillings/lines');
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${await ref.read(authProvider.notifier)._authService.getToken()}',
-        },
-        body: json.encode({
-          'capacity': capacity,
-          'type': type,
-        }),
-      );
-      
-      if (response.statusCode == 201) {
-        final jsonData = json.decode(response.body);
-        if (jsonData['success']) {
-          ref.refresh(fillingLinesProvider);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Filling line created successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(jsonData['message'] ?? 'Failed to create filling line'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create filling line: ${response.statusCode}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error creating filling line: $e'),
-          backgroundColor: Colors.red,
         ),
-      );
-    }
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    
-    if (time.day == now.day &&
-        time.month == now.month &&
-        time.year == now.year) {
-      // Same day, show only time
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    } else {
-      // Different day, show date and time
-      return '${time.day}/${time.month} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    }
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement complete filling logic
+              final finalPressure = double.tryParse(finalPressureController.text);
+              
+              if (finalPressure == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid final pressure'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              
+              Navigator.of(context).pop();
+              
+              // Complete the filling operation
+              _completeFilling(filling, finalPressure);
+            },
+            child: const Text('Complete Filling'),
+          ),
+        ],
+      ),
+    );
   }
 }
