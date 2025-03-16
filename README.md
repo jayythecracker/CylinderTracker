@@ -59,11 +59,20 @@ Each entity (User, Factory, Cylinder, etc.) has corresponding CRUD operations an
 
 The system implements real-time updates via WebSocket for the following events:
 
-- Cylinder status changes
-- Filling operations (start/complete)
-- Inspection results
-- Sale updates
-- Delivery status changes
+### WebSocket Event Types
+
+| Event Type | Description | Trigger |
+|------------|-------------|---------|
+| `cylinder_created` | New cylinder added to the system | When a new cylinder is created |
+| `cylinder_updated` | Cylinder details updated | When cylinder information is modified |
+| `cylinder_deleted` | Cylinder removed from the system | When a cylinder is deleted |
+| `cylinder_status_updated` | Cylinder status changed | When a cylinder's status is updated (e.g., Empty → Full) |
+| `filling_started` | Filling operation initiated | When a filling process begins |
+| `filling_completed` | Filling operation finished | When a filling process is completed |
+| `inspection_completed` | Inspection performed | When a cylinder inspection is completed |
+| `sale_created` | New sale recorded | When a new sale is created |
+| `sale_status_updated` | Sale status changed | When a sale's status is updated |
+| `custom` | Custom system message | For system announcements or custom notifications |
 
 ### WebSocket Implementation
 
@@ -75,17 +84,87 @@ The system uses a dedicated WebSocket server that:
 4. **Provides utility functions** through the `broadcast.js` module
 5. **Supports event types** for all major system operations
 
-Example WebSocket message format:
+### Message Format
+
+All WebSocket messages follow a standard format:
+
+```json
+{
+  "type": "event_type_name",
+  "data": {
+    // Event-specific data payload
+  }
+}
+```
+
+### Example Messages
+
+**Cylinder Status Update:**
 ```json
 {
   "type": "cylinder_status_updated",
   "data": {
     "id": 123,
     "status": "Full",
-    "notes": "Filled on March 15"
+    "notes": "Filled on March 15",
+    "updatedBy": "john.doe",
+    "timestamp": "2025-03-16T10:30:45Z"
   }
 }
 ```
+
+**Filling Completed:**
+```json
+{
+  "type": "filling_completed",
+  "data": {
+    "id": 456,
+    "cylinderId": 123,
+    "filledBy": "john.doe",
+    "startTime": "2025-03-16T09:15:20Z",
+    "endTime": "2025-03-16T10:20:30Z",
+    "gasType": "Oxygen",
+    "quantity": 10.5,
+    "status": "Completed"
+  }
+}
+```
+
+**Inspection Completed:**
+```json
+{
+  "type": "inspection_completed",
+  "data": {
+    "id": 789,
+    "cylinderId": 123,
+    "inspectedBy": "jane.smith",
+    "inspectionDate": "2025-03-16T11:45:00Z",
+    "result": "Approved",
+    "notes": "Passed all safety checks"
+  }
+}
+```
+
+### Integration in Flutter Frontend
+
+The Flutter app uses the `WebSocketService` class to maintain a connection to the server and process events:
+
+```dart
+// Initialize the service
+final websocketService = ref.watch(websocketServiceProvider);
+
+// Listen for specific event types
+ref.listen<AsyncValue<dynamic>>(
+  websocketEventProvider(WebSocketEventType.cylinderStatusUpdated), 
+  (_, state) {
+    state.whenData((data) {
+      // Handle cylinder status update
+    });
+  }
+);
+```
+
+The `RealTimeUpdatesWidget` component provides a ready-to-use UI element that displays recent events in real-time.
 
 Clients can subscribe to these events to update their UI in real-time without polling the server.
 

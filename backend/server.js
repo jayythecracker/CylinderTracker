@@ -52,13 +52,36 @@ async function startServer() {
           const data = JSON.parse(message);
           console.log('Received:', data);
           
-          // Echo back to client for now
+          // Echo back to client
           ws.send(JSON.stringify({
             type: 'echo',
             data
           }));
+          
+          // If this is an event simulation from the simulator, broadcast it to all clients
+          if (data.type && data.data) {
+            // For simulator events, we'll simulate the backend broadcasting them
+            // In a real scenario, these would come from actual backend operations
+            if (['cylinder_status_updated', 'filling_started', 'filling_completed', 
+                 'inspection_completed', 'sale_created', 'sale_status_updated', 
+                 'custom'].includes(data.type)) {
+              
+              // Add a small delay to make it feel more realistic
+              setTimeout(() => {
+                broadcast({
+                  type: data.type,
+                  data: data.data
+                });
+                console.log(`Broadcasted ${data.type} event to all clients`);
+              }, 500);
+            }
+          }
         } catch (error) {
           console.error('Error processing WebSocket message:', error);
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Invalid message format'
+          }));
         }
       });
       
