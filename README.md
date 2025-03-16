@@ -39,6 +39,22 @@ The system uses a comprehensive relational database schema with the following ma
 - **Sales**: Sales records with items and payments
 - **Deliveries**: Delivery tracking for cylinders
 
+### Data Storage Architecture
+
+The system implements a clean separation of concerns with a repository pattern:
+
+- **IStorage Interface**: Defines a consistent API for data access operations
+- **DatabaseStorage Class**: Implements the storage interface with Drizzle ORM
+- **Controller Layer**: Uses the storage interface to interact with the database
+- **Service Layer**: Implements business logic using the storage interface
+
+Each entity (User, Factory, Cylinder, etc.) has corresponding CRUD operations and specialized methods in the storage interface. This architecture allows for:
+
+- Consistent data access patterns
+- Easy testing with mock implementations
+- Clear separation between business logic and data access
+- Clean implementation of transaction management
+
 ## WebSocket Events
 
 The system implements real-time updates via WebSocket for the following events:
