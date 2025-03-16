@@ -1,12 +1,21 @@
+/**
+ * Authentication and Authorization Configuration
+ */
+
+// Import shared config
+const config = require('./config');
+
 module.exports = {
-  jwtSecret: process.env.JWT_SECRET || 'cylinder-management-secret-key',
-  jwtExpiresIn: '1d',
+  jwtSecret: process.env.JWT_SECRET || config.jwt.secret,
+  jwtExpiresIn: config.jwt.expiresIn,
   saltRounds: 10,
   roles: {
     ADMIN: 'admin',
     MANAGER: 'manager',
     FILLER: 'filler',
-    SELLER: 'seller'
+    INSPECTOR: 'inspector',
+    SELLER: 'seller',
+    VIEWER: 'viewer'
   },
   permissions: {
     // User management permissions
@@ -85,6 +94,12 @@ module.exports = {
       'create_filling', 'read_filling', 'update_filling'
     ],
     
+    inspector: [
+      // Inspector can perform inspections and view cylinders
+      'read_cylinder', 'update_cylinder',
+      'create_inspection', 'read_inspection', 'update_inspection'
+    ],
+    
     seller: [
       // Seller can manage sales and view customers and cylinders
       'read_cylinder',
@@ -92,6 +107,18 @@ module.exports = {
       'read_filling',
       'read_inspection',
       'create_sale', 'read_sale', 'update_sale'
+    ],
+    
+    viewer: [
+      // Viewer has read-only permissions
+      'read_user',
+      'read_factory',
+      'read_cylinder',
+      'read_customer',
+      'read_filling',
+      'read_inspection',
+      'read_sale',
+      'view_reports'
     ]
   }
 };
