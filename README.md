@@ -65,6 +65,30 @@ The system implements real-time updates via WebSocket for the following events:
 - Sale updates
 - Delivery status changes
 
+### WebSocket Implementation
+
+The system uses a dedicated WebSocket server that:
+
+1. **Runs on the same HTTP server** as the REST API (path: `/ws`)
+2. **Maintains active connections** in a connection pool
+3. **Broadcasts events** to all connected clients
+4. **Provides utility functions** through the `broadcast.js` module
+5. **Supports event types** for all major system operations
+
+Example WebSocket message format:
+```json
+{
+  "type": "cylinder_status_updated",
+  "data": {
+    "id": 123,
+    "status": "Full",
+    "notes": "Filled on March 15"
+  }
+}
+```
+
+Clients can subscribe to these events to update their UI in real-time without polling the server.
+
 ## API Structure
 
 The API follows a RESTful structure with the following main endpoints:
@@ -77,6 +101,40 @@ The API follows a RESTful structure with the following main endpoints:
 - `/api/inspections`: Inspection management
 - `/api/sales`: Sales and delivery tracking
 - `/api/reports`: Reporting and analytics
+
+### API Security
+
+The API implements several security measures:
+
+1. **JWT Authentication**: All protected endpoints require a valid JWT token
+2. **Role-Based Access Control**: Endpoints are restricted based on user roles
+3. **Input Validation**: Request data is validated before processing
+4. **Rate Limiting**: Prevents abuse of the API with rate limits
+5. **Error Handling**: Standardized error responses with appropriate HTTP status codes
+
+Example authentication flow:
+```
+POST /api/auth/login
+{
+  "username": "user@example.com",
+  "password": "securePassword"
+}
+
+Response:
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": 1,
+    "username": "user@example.com",
+    "role": "manager"
+  }
+}
+```
+
+All subsequent requests include the JWT token in the Authorization header:
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
 
 ## Getting Started
 
