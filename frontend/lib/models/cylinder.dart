@@ -1,10 +1,12 @@
 import 'package:cylinder_management/models/factory.dart';
+import 'package:cylinder_management/models/cylinder_type.dart';
 
 class Cylinder {
   final int id;
   final String serialNumber;
   final String size;
   final String type; // Medical or Industrial
+  final String gasType; // Oxygen, Nitrogen, etc.
   final DateTime? importDate;
   final DateTime productionDate;
   final String? originalNumber;
@@ -19,14 +21,16 @@ class Cylinder {
   final DateTime createdAt;
   final DateTime updatedAt;
   
-  // Optional nested object
+  // Optional nested objects
   final Factory? factory;
+  final CylinderType? cylinderType;
 
   Cylinder({
     required this.id,
     required this.serialNumber,
     required this.size,
     required this.type,
+    required this.gasType,
     this.importDate,
     required this.productionDate,
     this.originalNumber,
@@ -41,6 +45,7 @@ class Cylinder {
     required this.createdAt,
     required this.updatedAt,
     this.factory,
+    this.cylinderType,
   });
 
   // Factory method to create a Cylinder from JSON
@@ -49,18 +54,19 @@ class Cylinder {
       id: json['id'],
       serialNumber: json['serialNumber'],
       size: json['size'],
-      type: json['type'],
+      type: json['type'] ?? 'Industrial', // Default to Industrial if not specified
+      gasType: json['gasType'] ?? 'Oxygen', // Default to Oxygen if not specified
       importDate: json['importDate'] != null ? DateTime.parse(json['importDate']) : null,
-      productionDate: DateTime.parse(json['productionDate']),
+      productionDate: json['productionDate'] != null ? DateTime.parse(json['productionDate']) : DateTime.now(),
       originalNumber: json['originalNumber'],
       workingPressure: json['workingPressure'] is int 
         ? json['workingPressure'].toDouble() 
-        : json['workingPressure'],
+        : (json['workingPressure'] ?? 0.0),
       designPressure: json['designPressure'] is int 
         ? json['designPressure'].toDouble() 
-        : json['designPressure'],
-      status: json['status'],
-      factoryId: json['factoryId'],
+        : (json['designPressure'] ?? 0.0),
+      status: json['status'] ?? 'Empty',
+      factoryId: json['factoryId'] ?? 0,
       lastFilled: json['lastFilled'] != null ? DateTime.parse(json['lastFilled']) : null,
       lastInspected: json['lastInspected'] != null ? DateTime.parse(json['lastInspected']) : null,
       qrCode: json['qrCode'],
@@ -68,6 +74,7 @@ class Cylinder {
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
       factory: json['factory'] != null ? Factory.fromJson(json['factory']) : null,
+      cylinderType: json['cylinderType'] != null ? CylinderType.fromJson(json['cylinderType']) : null,
     );
   }
 
@@ -78,6 +85,7 @@ class Cylinder {
       'serialNumber': serialNumber,
       'size': size,
       'type': type,
+      'gasType': gasType,
       'importDate': importDate?.toIso8601String(),
       'productionDate': productionDate.toIso8601String(),
       'originalNumber': originalNumber,
@@ -89,7 +97,7 @@ class Cylinder {
       'lastInspected': lastInspected?.toIso8601String(),
       'qrCode': qrCode,
       'notes': notes,
-      // Nested factory is not included in the JSON for API requests
+      // Nested objects are not included in the JSON for API requests
     };
   }
 
