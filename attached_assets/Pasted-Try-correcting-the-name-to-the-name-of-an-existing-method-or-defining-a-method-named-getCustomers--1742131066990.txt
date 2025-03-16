@@ -1,0 +1,1023 @@
+Try correcting the name to the name of an existing method, or defining a method named 'getCustomers'.
+      await ref.read(customersProvider.notifier).getCustomers(
+                                                 ^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:81:46: Error: The method 'getSales' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'getSales'.
+      await ref.read(salesProvider.notifier).getSales(
+                                             ^^^^^^^^
+lib/screens/sales/sales_screen.dart:139:30: Error: Required named parameter 'currentIndex' must be provided.
+      drawer: const AppDrawer(),
+                             ^
+lib/widgets/app_drawer.dart:10:9: Context: Found this candidate, but the arguments don't match.
+  const AppDrawer({
+        ^^^^^^^^^
+lib/screens/sales/sales_screen.dart:112:29: Error: The getter 'RoleBasedAccess' isn't defined for the class '_SalesScreenState'.
+ - '_SalesScreenState' is from 'package:cylinder_management/screens/sales/sales_screen.dart' ('lib/screens/sales/sales_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'RoleBasedAccess'.
+    final hasSellerAccess = RoleBasedAccess.hasRole(
+                            ^^^^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:403:48: Error: The getter 'invoiceNumber' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'invoiceNumber'.
+                              'Invoice: ${sale.invoiceNumber}',
+                                               ^^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:409:64: Error: The getter 'saleDate' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleDate'.
+                                Text('Date: ${_formatDate(sale.saleDate)}'),
+                                                               ^^^^^^^^
+lib/screens/sales/sales_screen.dart:410:54: Error: The getter 'status' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'status'.
+                                Text('Status: ${sale.status}'),
+                                                     ^^^^^^
+lib/screens/sales/sales_screen.dart:411:56: Error: The getter 'totalAmount' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                                Text('Amount: \$${sale.totalAmount.toStringAsFixed(2)}'),
+                                                       ^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:420:68: Error: The getter 'paymentStatus' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentStatus'.
+                                color: _getPaymentStatusColor(sale.paymentStatus).withOpacity(0.2),
+                                                                   ^^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:424:38: Error: The getter 'paymentStatus' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentStatus'.
+                                sale.paymentStatus,
+                                     ^^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:427:70: Error: The getter 'paymentStatus' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentStatus'.
+                                  color: _getPaymentStatusColor(sale.paymentStatus),
+                                                                     ^^^^^^^^^^^^^
+lib/screens/sales/sales_screen.dart:436:88: Error: The getter 'id' isn't defined for the class 'String'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'id'.
+                                  builder: (context) => SaleDetailsScreen(saleId: sale.id),
+                                                                                       ^^
+lib/screens/sales/sales_screen.dart:399:32: Error: A value of type 'Card' can't be returned from a function with return type 'MapEntry<dynamic, dynamic>'.
+ - 'Card' is from 'package:flutter/src/material/card.dart' ('../../../flutter/flutter/packages/flutter/lib/src/material/card.dart').
+ - 'MapEntry' is from 'dart:core'.
+                        return Card(
+                               ^
+lib/screens/sales/sales_screen.dart:398:43: Error: The argument type 'MapEntry<dynamic, dynamic> Function(String)' can't be assigned to the parameter type
+'MapEntry<dynamic, dynamic> Function(String, dynamic)'.
+ - 'MapEntry' is from 'dart:core'.
+                      children: sales.map((sale) {
+                                          ^
+lib/screens/sales/sales_screen.dart:442:26: Error: The method 'toList' isn't defined for the class 'Map<dynamic, dynamic>'.
+ - 'Map' is from 'dart:core'.
+Try correcting the name to the name of an existing method, or defining a method named 'toList'.
+                      }).toList(),
+                         ^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:162:26: Error: Member not found: 'AppConfig.getStatusColor'.
+        color: AppConfig.getStatusColor(cylinder.status).withOpacity(0.1),
+                         ^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:165:30: Error: Member not found: 'AppConfig.getStatusColor'.
+            color: AppConfig.getStatusColor(cylinder.status),
+                             ^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:174:40: Error: Member not found: 'AppConfig.getStatusColor'.
+            backgroundColor: AppConfig.getStatusColor(cylinder.status),
+                                       ^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:229:36: Error: Member not found: 'AppConfig.getStatusColor'.
+                  color: AppConfig.getStatusColor(cylinder.status),
+                                   ^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:492:72: Error: The getter 'pressureCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'pressureCheck'.
+                    _buildInfoRow('Pressure Check:', '${lastInspection.pressureCheck} bar'),
+                                                                       ^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:493:67: Error: The getter 'visualCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'visualCheck'.
+                    _buildInfoRow('Visual Check:', lastInspection.visualCheck ? 'Passed' : 'Failed'),
+                                                                  ^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:494:66: Error: The getter 'valveCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'valveCheck'.
+                    _buildInfoRow('Valve Check:', lastInspection.valveCheck ? 'Passed' : 'Failed'),
+                                                                 ^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:495:40: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                    if (lastInspection.rejectionReason != null && lastInspection.rejectionReason!.isNotEmpty)
+                                       ^^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:495:82: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                    if (lastInspection.rejectionReason != null && lastInspection.rejectionReason!.isNotEmpty)
+                                                                                 ^^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:496:73: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                      _buildInfoRow('Rejection Reason:', lastInspection.rejectionReason!),
+                                                                        ^^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:497:40: Error: The getter 'inspectedBy' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspectedBy'.
+                    if (lastInspection.inspectedBy != null)
+                                       ^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:498:69: Error: The getter 'inspectedBy' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspectedBy'.
+                      _buildInfoRow('Inspected By:', lastInspection.inspectedBy!.name),
+                                                                    ^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:722:64: Error: The getter 'pressureCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'pressureCheck'.
+                      _buildInfoRow('Pressure:', '${inspection.pressureCheck} bar'),
+                                                               ^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:723:65: Error: The getter 'visualCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'visualCheck'.
+                      _buildInfoRow('Visual Check:', inspection.visualCheck ? 'Passed' : 'Failed'),
+                                                                ^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:724:64: Error: The getter 'valveCheck' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'valveCheck'.
+                      _buildInfoRow('Valve Check:', inspection.valveCheck ? 'Passed' : 'Failed'),
+                                                               ^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:725:38: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                      if (inspection.rejectionReason != null && inspection.rejectionReason!.isNotEmpty)
+                                     ^^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:725:76: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                      if (inspection.rejectionReason != null && inspection.rejectionReason!.isNotEmpty)
+                                                                           ^^^^^^^^^^^^^^^
+lib/screens/cylinders/cylinder_detail_screen.dart:726:61: Error: The getter 'rejectionReason' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'rejectionReason'.
+                        _buildInfoRow('Reason:', inspection.rejectionReason!),
+                                                            ^^^^^^^^^^^^^^^
+lib/widgets/cylinder_card.dart:39:34: Error: Member not found: 'AppConfig.getStatusColor'.
+                color: AppConfig.getStatusColor(cylinder.status).withOpacity(0.1),
+                                 ^^^^^^^^^^^^^^
+lib/widgets/cylinder_card.dart:49:48: Error: Member not found: 'AppConfig.getStatusColor'.
+                    backgroundColor: AppConfig.getStatusColor(cylinder.status),
+                                               ^^^^^^^^^^^^^^
+lib/widgets/cylinder_card.dart:73:40: Error: Member not found: 'AppConfig.getStatusColor'.
+                      color: AppConfig.getStatusColor(cylinder.status),
+                                       ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:255:47: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+        color: _getCustomerTypeColor(customer.type).withOpacity(0.1),
+                                              ^^^^
+lib/screens/customers/customer_detail_screen.dart:258:51: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+            color: _getCustomerTypeColor(customer.type),
+                                                  ^^^^
+lib/screens/customers/customer_detail_screen.dart:267:61: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+            backgroundColor: _getCustomerTypeColor(customer.type),
+                                                            ^^^^
+lib/screens/customers/customer_detail_screen.dart:269:45: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+              _getCustomerTypeIcon(customer.type),
+                                            ^^^^
+lib/screens/customers/customer_detail_screen.dart:290:32: Error: The getter 'typeDisplayName' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'typeDisplayName'.
+                      customer.typeDisplayName,
+                               ^^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:291:53: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                      _getCustomerTypeIcon(customer.type),
+                                                    ^^^^
+lib/screens/customers/customer_detail_screen.dart:295:32: Error: The getter 'paymentType' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentType'.
+                      customer.paymentType,
+                               ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:298:34: Error: The getter 'priceGroup' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'priceGroup'.
+                    if (customer.priceGroup != 'Standard') ...[
+                                 ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:301:34: Error: The getter 'priceGroup' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'priceGroup'.
+                        customer.priceGroup,
+                                 ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:313:29: Error: The getter 'active' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'active'.
+              if (!customer.active)
+                            ^^^^^^
+lib/screens/customers/customer_detail_screen.dart:412:61: Error: The getter 'contact' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'contact'.
+                  _buildInfoRow('Contact Number:', customer.contact),
+                                                            ^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:415:54: Error: The argument type 'String?' can't be assigned to the parameter type 'String' because 'String?' is
+nullable and 'String' isn't.
+                  _buildInfoRow('Address:', customer.address),
+                                                     ^
+lib/screens/customers/customer_detail_screen.dart:437:60: Error: The getter 'typeDisplayName' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'typeDisplayName'.
+                  _buildInfoRow('Customer Type:', customer.typeDisplayName),
+                                                           ^^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:438:59: Error: The getter 'paymentType' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentType'.
+                  _buildInfoRow('Payment Type:', customer.paymentType),
+                                                          ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:439:58: Error: The getter 'priceGroup' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'priceGroup'.
+                  _buildInfoRow('Price Group:', customer.priceGroup),
+                                                         ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:440:32: Error: The getter 'paymentType' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentType'.
+                  if (customer.paymentType == 'Credit') ...[
+                               ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:441:34: Error: The getter 'creditLimit' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'creditLimit'.
+                    if (customer.creditLimit != null)
+                                 ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:444:39: Error: The getter 'creditLimit' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'creditLimit'.
+                        '\$${customer.creditLimit!.toStringAsFixed(2)}',
+                                      ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:455:53: Error: The getter 'active' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'active'.
+                  _buildInfoRow('Active:', customer.active ? 'Yes' : 'No'),
+                                                    ^^^^^^
+lib/screens/customers/customer_detail_screen.dart:462:24: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+          if (customer.totalSales != null || customer.totalAmount != null)
+                       ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:462:55: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+          if (customer.totalSales != null || customer.totalAmount != null)
+                                                      ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:478:34: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+                    if (customer.totalSales != null)
+                                 ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:481:34: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+                        customer.totalSales.toString(),
+                                 ^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:483:34: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                    if (customer.totalAmount != null)
+                                 ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:486:39: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                        '\$${customer.totalAmount!.toStringAsFixed(2)}',
+                                      ^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:638:32: Error: The getter 'cylinderCount' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinderCount'.
+                      if (sale.cylinderCount > 0)
+                               ^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:639:49: Error: The getter 'cylinderCount' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinderCount'.
+                        Text('Cylinders: ${sale.cylinderCount}'),
+                                                ^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:675:63: Error: The getter 'deliveryStatus' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryStatus'.
+                          color: _getDeliveryStatusColor(sale.deliveryStatus).withOpacity(0.1),
+                                                              ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:678:65: Error: The getter 'deliveryStatus' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryStatus'.
+                            color: _getDeliveryStatusColor(sale.deliveryStatus).withOpacity(0.5),
+                                                                ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:682:32: Error: The getter 'deliveryStatus' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryStatus'.
+                          sale.deliveryStatus,
+                               ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:685:65: Error: The getter 'deliveryStatus' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryStatus'.
+                            color: _getDeliveryStatusColor(sale.deliveryStatus),
+                                                                ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:704:30: Error: The getter 'isPickup' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isPickup'.
+                        sale.isPickup ? Icons.store : Icons.local_shipping,
+                             ^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:710:30: Error: The getter 'deliveryMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryMethod'.
+                        sale.deliveryMethod,
+                             ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:793:24: Error: The getter 'remainingAmount' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'remainingAmount'.
+              if (sale.remainingAmount > 0)
+                       ^^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:796:29: Error: The getter 'remainingAmount' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'remainingAmount'.
+                  '\$${sale.remainingAmount.toStringAsFixed(2)}',
+                            ^^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:806:54: Error: The getter 'deliveryMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryMethod'.
+              _buildInfoRow('Delivery Method:', sale.deliveryMethod),
+                                                     ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:807:54: Error: The getter 'deliveryStatus' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryStatus'.
+              _buildInfoRow('Delivery Status:', sale.deliveryStatus),
+                                                     ^^^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:808:24: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+              if (sale.truck != null)
+                       ^^^^^
+lib/screens/customers/customer_detail_screen.dart:809:49: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+                _buildInfoRow('Truck:', '${sale.truck!.licenseNumber} (${sale.truck!.type})'),
+                                                ^^^^^
+lib/screens/customers/customer_detail_screen.dart:809:79: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+                _buildInfoRow('Truck:', '${sale.truck!.licenseNumber} (${sale.truck!.type})'),
+                                                                              ^^^^^
+lib/screens/customers/customer_detail_screen.dart:810:24: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+              if (sale.deliveryDate != null)
+                       ^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:813:66: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+                  DateFormat('MMM dd, yyyy - HH:mm').format(sale.deliveryDate!),
+                                                                 ^^^^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:819:24: Error: The getter 'cylinders' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinders'.
+              if (sale.cylinders != null && sale.cylinders!.isNotEmpty) ...[
+                       ^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:819:50: Error: The getter 'cylinders' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinders'.
+              if (sale.cylinders != null && sale.cylinders!.isNotEmpty) ...[
+                                                 ^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:831:35: Error: The getter 'cylinders' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinders'.
+                  itemCount: sale.cylinders!.length,
+                                  ^^^^^^^^^
+lib/screens/customers/customer_detail_screen.dart:833:39: Error: The getter 'cylinders' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinders'.
+                    final item = sale.cylinders![index];
+                                      ^^^^^^^^^
+lib/widgets/customer_card.dart:38:55: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                color: _getCustomerTypeColor(customer.type).withOpacity(0.1),
+                                                      ^^^^
+lib/widgets/customer_card.dart:48:69: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                    backgroundColor: _getCustomerTypeColor(customer.type),
+                                                                    ^^^^
+lib/widgets/customer_card.dart:50:53: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                      _getCustomerTypeIcon(customer.type),
+                                                    ^^^^
+lib/widgets/customer_card.dart:71:61: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                      color: _getCustomerTypeColor(customer.type),
+                                                            ^^^^
+lib/widgets/customer_card.dart:75:32: Error: The getter 'type' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'type'.
+                      customer.type,
+                               ^^^^
+lib/widgets/customer_card.dart:83:33: Error: The getter 'active' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'active'.
+                  if (!customer.active) ...[
+                                ^^^^^^
+lib/widgets/customer_card.dart:119:36: Error: The getter 'contact' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'contact'.
+                          customer.contact,
+                                   ^^^^^^^
+lib/widgets/customer_card.dart:126:36: Error: The getter 'paymentType' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentType'.
+                          customer.paymentType,
+                                   ^^^^^^^^^^^
+lib/widgets/customer_card.dart:135:30: Error: The argument type 'String?' can't be assigned to the parameter type 'String' because 'String?' is nullable and 'String'
+isn't.
+                    customer.address,
+                             ^
+lib/widgets/customer_card.dart:144:36: Error: The getter 'priceGroup' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'priceGroup'.
+                          customer.priceGroup,
+                                   ^^^^^^^^^^
+lib/widgets/customer_card.dart:159:32: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+                  if (customer.totalSales != null || customer.totalAmount != null) ...[
+                               ^^^^^^^^^^
+lib/widgets/customer_card.dart:159:63: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                  if (customer.totalSales != null || customer.totalAmount != null) ...[
+                                                              ^^^^^^^^^^^
+lib/widgets/customer_card.dart:165:38: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+                        if (customer.totalSales != null)
+                                     ^^^^^^^^^^
+lib/widgets/customer_card.dart:169:40: Error: The getter 'totalSales' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalSales'.
+                              customer.totalSales.toString(),
+                                       ^^^^^^^^^^
+lib/widgets/customer_card.dart:173:38: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                        if (customer.totalAmount != null)
+                                     ^^^^^^^^^^^
+lib/widgets/customer_card.dart:177:45: Error: The getter 'totalAmount' isn't defined for the class 'Customer'.
+ - 'Customer' is from 'package:cylinder_management/models/customer.dart' ('lib/models/customer.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'totalAmount'.
+                              '\$${customer.totalAmount!.toStringAsFixed(2)}',
+                                            ^^^^^^^^^^^
+lib/providers/services_provider.dart:21:12: Error: Undefined name 'Provider'.
+    return Provider.of<ApiService>(context, listen: listen);
+           ^^^^^^^^
+lib/providers/services_provider.dart:26:12: Error: Undefined name 'Provider'.
+    return Provider.of<WebSocketService>(context, listen: listen);
+           ^^^^^^^^
+lib/providers/services_provider.dart:31:12: Error: Undefined name 'Provider'.
+    return Provider.of<WebSocketManager>(context, listen: listen);
+           ^^^^^^^^
+lib/providers/services_provider.dart:46:41: Error: Required named parameter 'baseUrl' must be provided.
+    _webSocketService = WebSocketService();
+                                        ^
+lib/services/websocket_service.dart:27:3: Context: Found this candidate, but the arguments don't match.
+  WebSocketService({
+  ^^^^^^^^^^^^^^^^
+lib/providers/services_provider.dart:63:12: Error: The method 'MultiProvider' isn't defined for the class '_ServicesProviderState'.
+ - '_ServicesProviderState' is from 'package:cylinder_management/providers/services_provider.dart' ('lib/providers/services_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'MultiProvider'.
+    return MultiProvider(
+           ^^^^^^^^^^^^^
+lib/providers/services_provider.dart:65:9: Error: The getter 'Provider' isn't defined for the class '_ServicesProviderState'.
+ - '_ServicesProviderState' is from 'package:cylinder_management/providers/services_provider.dart' ('lib/providers/services_provider.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'Provider'.
+        Provider<ApiService>.value(value: _apiService),
+        ^^^^^^^^
+lib/providers/services_provider.dart:65:9: Error: The static type of the explicit instantiation operand must be a generic function type but is 'dynamic'.
+Try changing the operand or remove the type arguments.
+        Provider<ApiService>.value(value: _apiService),
+        ^
+lib/providers/services_provider.dart:66:9: Error: The getter 'ChangeNotifierProvider' isn't defined for the class '_ServicesProviderState'.
+ - '_ServicesProviderState' is from 'package:cylinder_management/providers/services_provider.dart' ('lib/providers/services_provider.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'ChangeNotifierProvider'.
+        ChangeNotifierProvider<WebSocketService>.value(value: _webSocketService),
+        ^^^^^^^^^^^^^^^^^^^^^^
+lib/providers/services_provider.dart:66:9: Error: The static type of the explicit instantiation operand must be a generic function type but is 'dynamic'.
+Try changing the operand or remove the type arguments.
+        ChangeNotifierProvider<WebSocketService>.value(value: _webSocketService),
+        ^
+lib/providers/services_provider.dart:67:9: Error: The getter 'Provider' isn't defined for the class '_ServicesProviderState'.
+ - '_ServicesProviderState' is from 'package:cylinder_management/providers/services_provider.dart' ('lib/providers/services_provider.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'Provider'.
+        Provider<WebSocketManager>.value(value: _webSocketManager),
+        ^^^^^^^^
+lib/providers/services_provider.dart:67:9: Error: The static type of the explicit instantiation operand must be a generic function type but is 'dynamic'.
+Try changing the operand or remove the type arguments.
+        Provider<WebSocketManager>.value(value: _webSocketManager),
+        ^
+lib/screens/inspection/inspection_detail_screen.dart:38:3: Error: 'InspectionResult' isn't a type.
+  InspectionResult _result = InspectionResult.Pending;
+  ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:38:30: Error: Undefined name 'InspectionResult'.
+  InspectionResult _result = InspectionResult.Pending;
+                             ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:52:53: Error: The getter 'pressure' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'pressure'.
+      _pressureController.text = widget.inspection!.pressure?.toString() ?? '';
+                                                    ^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:53:78: Error: A value of type 'Object' can't be assigned to a variable of type 'String'.
+ - 'Object' is from 'dart:core'.
+      _visualInspectionController.text = widget.inspection!.visualInspection ?? '';
+                                                                             ^
+lib/screens/inspection/inspection_detail_screen.dart:56:48: Error: The getter 'nextInspectionDate' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'nextInspectionDate'.
+      _nextInspectionDate = widget.inspection!.nextInspectionDate ?? _nextInspectionDate;
+                                               ^^^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:104:40: Error: The getter 'inspectionProvider' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspectionProvider'.
+        final success = await ref.read(inspectionProvider.notifier)
+                                       ^^^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:115:40: Error: The getter 'inspectionProvider' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspectionProvider'.
+        final success = await ref.read(inspectionProvider.notifier).createInspection(inspectionData);
+                                       ^^^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:171:23: Error: No named parameter with the name 'showDetailChevron'.
+                      showDetailChevron: false,
+                      ^^^^^^^^^^^^^^^^^
+lib/widgets/cylinder_card.dart:12:9: Context: Found this candidate, but the arguments don't match.
+  const CylinderCard({
+        ^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:176:23: Error: No named parameter with the name 'showDetailChevron'.
+                      showDetailChevron: false,
+                      ^^^^^^^^^^^^^^^^^
+lib/widgets/cylinder_card.dart:12:9: Context: Found this candidate, but the arguments don't match.
+  const CylinderCard({
+        ^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:355:52: Error: 'InspectionResult' isn't a type.
+                              child: RadioListTile<InspectionResult>(
+                                                   ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:360:40: Error: 'InspectionResult' isn't a type.
+                                    ? (InspectionResult? value) {
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:371:52: Error: 'InspectionResult' isn't a type.
+                              child: RadioListTile<InspectionResult>(
+                                                   ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:376:40: Error: 'InspectionResult' isn't a type.
+                                    ? (InspectionResult? value) {
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:387:52: Error: 'InspectionResult' isn't a type.
+                              child: RadioListTile<InspectionResult>(
+                                                   ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:392:40: Error: 'InspectionResult' isn't a type.
+                                    ? (InspectionResult? value) {
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:139:49: Error: The getter 'user' isn't defined for the class 'AsyncValue<User?>'.
+ - 'AsyncValue' is from 'package:riverpod/src/common.dart' ('../../../.pub-cache/hosted/pub.dev/riverpod-2.6.1/lib/src/common.dart').
+ - 'User' is from 'package:cylinder_management/models/user.dart' ('lib/models/user.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'user'.
+    final currentUser = ref.watch(authProvider).user;
+                                                ^^^^
+lib/screens/inspection/inspection_detail_screen.dart:168:57: Error: The getter 'cylinder' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'cylinder'.
+                  if (_isViewMode && widget.inspection!.cylinder != null)
+                                                        ^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:242:66: Error: The getter 'resultText' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'resultText'.
+                                              widget.inspection!.resultText,
+                                                                 ^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:260:52: Error: The getter 'pressure' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'pressure'.
+                            if (widget.inspection!.pressure != null) ...[
+                                                   ^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:266:69: Error: The getter 'pressure' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'pressure'.
+                                    'Pressure: ${widget.inspection!.pressure} bar',
+                                                                    ^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:276:52: Error: The getter 'nextInspectionDate' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'nextInspectionDate'.
+                            if (widget.inspection!.nextInspectionDate != null) ...[
+                                                   ^^^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:282:94: Error: The getter 'nextInspectionDate' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'nextInspectionDate'.
+                                    'Next Inspection: ${dateFormat.format(widget.inspection!.nextInspectionDate!)}',
+                                                                                             ^^^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:292:52: Error: The getter 'inspector' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspector'.
+                            if (widget.inspection!.inspector != null) ...[
+                                                   ^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:298:70: Error: The getter 'inspector' isn't defined for the class 'Inspection'.
+ - 'Inspection' is from 'package:cylinder_management/models/inspection.dart' ('lib/models/inspection.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'inspector'.
+                                    'Inspector: ${widget.inspection!.inspector!.name}',
+                                                                     ^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:309:70: Error: The getter 'isNotEmpty' isn't defined for the class 'bool'.
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isNotEmpty'.
+                                widget.inspection!.visualInspection!.isNotEmpty) ...[
+                                                                     ^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:317:71: Error: The argument type 'bool' can't be assigned to the parameter type 'String'.
+                              Text(widget.inspection!.visualInspection!),
+                                                                      ^
+lib/screens/inspection/inspection_detail_screen.dart:357:40: Error: The getter 'InspectionResult' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'InspectionResult'.
+                                value: InspectionResult.Approved,
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:373:40: Error: The getter 'InspectionResult' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'InspectionResult'.
+                                value: InspectionResult.Rejected,
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:389:40: Error: The getter 'InspectionResult' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'InspectionResult'.
+                                value: InspectionResult.Pending,
+                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:464:50: Error: The getter 'InspectionResult' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'InspectionResult'.
+                                      _result == InspectionResult.Approved
+                                                 ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:466:56: Error: The getter 'InspectionResult' isn't defined for the class '_InspectionDetailScreenState'.
+ - '_InspectionDetailScreenState' is from 'package:cylinder_management/screens/inspection/inspection_detail_screen.dart'
+ ('lib/screens/inspection/inspection_detail_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'InspectionResult'.
+                                          : _result == InspectionResult.Rejected
+                                                       ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:482:25: Error: 'InspectionResult' isn't a type.
+  Color _getResultColor(InspectionResult result) {
+                        ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:484:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Approved:
+           ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:486:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Rejected:
+           ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:488:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Pending:
+           ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:494:27: Error: 'InspectionResult' isn't a type.
+  IconData _getResultIcon(InspectionResult result) {
+                          ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:496:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Approved:
+           ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:498:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Rejected:
+           ^^^^^^^^^^^^^^^^
+lib/screens/inspection/inspection_detail_screen.dart:500:12: Error: Undefined name 'InspectionResult'.
+      case InspectionResult.Pending:
+           ^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:60:44: Error: The method 'getSales' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'getSales'.
+    await ref.read(salesProvider.notifier).getSales(
+                                           ^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:66:14: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+    ref.read(saleFilterProvider.notifier).state = {
+             ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:67:19: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+      ...ref.read(saleFilterProvider),
+                  ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:148:65: Error: Required named parameter 'currentIndex' must be provided.
+      drawer: widget.initialCustomerId == null ? const AppDrawer() : null,
+                                                                ^
+lib/widgets/app_drawer.dart:10:9: Context: Found this candidate, but the arguments don't match.
+  const AppDrawer({
+        ^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:123:38: Error: The getter 'salePaginationProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'salePaginationProvider'.
+    final paginationInfo = ref.watch(salePaginationProvider);
+                                     ^^^^^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:127:29: Error: The getter 'RoleBasedAccess' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'RoleBasedAccess'.
+    final hasSellerAccess = RoleBasedAccess.hasRole(
+                            ^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:224:17: Error: The argument type 'Map<String, dynamic>' can't be assigned to the parameter type 'List<Sale>'.
+ - 'Map' is from 'dart:core'.
+ - 'List' is from 'dart:core'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+                sales,
+                ^
+lib/screens/sales/sales_history_screen.dart:308:40: Error: The getter 'invoiceNumber' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'invoiceNumber'.
+                      'Invoice: ${sale.invoiceNumber}',
+                                       ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:432:36: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+                          ref.read(saleFilterProvider.notifier).state = {
+                                   ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:433:41: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+                            ...ref.read(saleFilterProvider),
+                                        ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:448:36: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+                          ref.read(saleFilterProvider.notifier).state = {
+                                   ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:449:41: Error: The getter 'saleFilterProvider' isn't defined for the class '_SalesHistoryScreenState'.
+ - '_SalesHistoryScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'saleFilterProvider'.
+                            ...ref.read(saleFilterProvider),
+                                        ^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:468:49: Error: The getter 'invoiceNumber' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'invoiceNumber'.
+        _buildDetailItem('Invoice Number', sale.invoiceNumber),
+                                                ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:471:41: Error: The getter 'seller' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'seller'.
+        _buildDetailItem('Seller', sale.seller?.name ?? 'Unknown'),
+                                        ^^^^^^
+lib/screens/sales/sales_history_screen.dart:473:18: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+        if (sale.truck != null)
+                 ^^^^^
+lib/screens/sales/sales_history_screen.dart:474:45: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+          _buildDetailItem('Truck', '${sale.truck!.licenseNumber} (${sale.truck!.type})'),
+                                            ^^^^^
+lib/screens/sales/sales_history_screen.dart:474:75: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+          _buildDetailItem('Truck', '${sale.truck!.licenseNumber} (${sale.truck!.type})'),
+                                                                          ^^^^^
+lib/screens/sales/sales_history_screen.dart:476:49: Error: The getter 'paymentMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentMethod'.
+        _buildDetailItem('Payment Method', sale.paymentMethod),
+                                                ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:495:51: Error: The getter 'deliveryAddress' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryAddress'.
+        _buildDetailItem('Delivery Address', sale.deliveryAddress ?? 'Not specified'),
+                                                  ^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:496:18: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+        if (sale.deliveryDate != null)
+                 ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:497:82: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+          _buildDetailItem('Delivery Date', DateFormat('MM/dd/yyyy').format(sale.deliveryDate!)),
+                                                                                 ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:516:18: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+        if (sale.items == null || sale.items!.isEmpty)
+                 ^^^^^
+lib/screens/sales/sales_history_screen.dart:516:40: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+        if (sale.items == null || sale.items!.isEmpty)
+                                       ^^^^^
+lib/screens/sales/sales_history_screen.dart:522:29: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+            itemCount: sale.items!.length,
+                            ^^^^^
+lib/screens/sales/sales_history_screen.dart:524:33: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+              final item = sale.items![index];
+                                ^^^^^
+lib/screens/sales/sales_history_screen.dart:792:43: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+    DateTime? selectedDeliveryDate = sale.deliveryDate;
+                                          ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:896:66: Error: The method 'updateSaleStatus' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'updateSaleStatus'.
+                          await ref.read(salesProvider.notifier).updateSaleStatus(
+                                                                 ^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:948:33: Error: The getter 'paymentMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentMethod'.
+    String paymentMethod = sale.paymentMethod;
+                                ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1053:66: Error: The method 'updateSalePayment' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'updateSalePayment'.
+                          await ref.read(salesProvider.notifier).updateSalePayment(
+                                                                 ^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1103:14: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    if (sale.items == null || sale.items!.isEmpty) {
+             ^^^^^
+lib/screens/sales/sales_history_screen.dart:1103:36: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    if (sale.items == null || sale.items!.isEmpty) {
+                                   ^^^^^
+lib/screens/sales/sales_history_screen.dart:1114:38: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    final returnableCylinders = sale.items!.where((item) => !item.returnedEmpty).toList();
+                                     ^^^^^
+lib/screens/sales/sales_history_screen.dart:1174:66: Error: The method 'recordCylinderReturn' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'recordCylinderReturn'.
+                          await ref.read(salesProvider.notifier).recordCylinderReturn(
+                                                                 ^^^^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1246:59: Error: The method 'getSaleById' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'getSaleById'.
+      final sale = await ref.read(salesProvider.notifier).getSaleById(widget.saleId);
+                                                          ^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1269:29: Error: The getter 'RoleBasedAccess' isn't defined for the class '_SaleDetailsScreenState'.
+ - '_SaleDetailsScreenState' is from 'package:cylinder_management/screens/sales/sales_history_screen.dart' ('lib/screens/sales/sales_history_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'RoleBasedAccess'.
+    final hasSellerAccess = RoleBasedAccess.hasRole(
+                            ^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1276:46: Error: The getter 'invoiceNumber' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'invoiceNumber'.
+        title: Text('Sale Details - ${_sale?.invoiceNumber ?? ''}'),
+                                             ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1305:56: Error: The getter 'invoiceNumber' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'invoiceNumber'.
+                                    'Invoice: ${_sale!.invoiceNumber}',
+                                                       ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1413:57: Error: The getter 'seller' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'seller'.
+                      _buildDetailItem('Seller', _sale!.seller?.name ?? 'Unknown'),
+                                                        ^^^^^^
+lib/screens/sales/sales_history_screen.dart:1415:34: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+                      if (_sale!.truck != null)
+                                 ^^^^^
+lib/screens/sales/sales_history_screen.dart:1416:61: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+                        _buildDetailItem('Truck', '${_sale!.truck!.licenseNumber} (${_sale!.truck!.type})'),
+                                                            ^^^^^
+lib/screens/sales/sales_history_screen.dart:1416:93: Error: The getter 'truck' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'truck'.
+                        _buildDetailItem('Truck', '${_sale!.truck!.licenseNumber} (${_sale!.truck!.type})'),
+                                                                                            ^^^^^
+lib/screens/sales/sales_history_screen.dart:1417:65: Error: The getter 'paymentMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentMethod'.
+                      _buildDetailItem('Payment Method', _sale!.paymentMethod),
+                                                                ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1434:67: Error: The getter 'deliveryAddress' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryAddress'.
+                      _buildDetailItem('Delivery Address', _sale!.deliveryAddress ?? 'Not specified'),
+                                                                  ^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1435:34: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+                      if (_sale!.deliveryDate != null)
+                                 ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1438:66: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+                          DateFormat('MM/dd/yyyy').format(_sale!.deliveryDate!)
+                                                                 ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1470:34: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+                      if (_sale!.items == null || _sale!.items!.isEmpty)
+                                 ^^^^^
+lib/screens/sales/sales_history_screen.dart:1470:58: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+                      if (_sale!.items == null || _sale!.items!.isEmpty)
+                                                         ^^^^^
+lib/screens/sales/sales_history_screen.dart:1481:45: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+                          itemCount: _sale!.items!.length,
+                                            ^^^^^
+lib/screens/sales/sales_history_screen.dart:1483:49: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+                            final item = _sale!.items![index];
+                                                ^^^^^
+lib/screens/sales/sales_history_screen.dart:1587:43: Error: The getter 'deliveryDate' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'deliveryDate'.
+    DateTime? selectedDeliveryDate = sale.deliveryDate;
+                                          ^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1691:66: Error: The method 'updateSaleStatus' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'updateSaleStatus'.
+                          await ref.read(salesProvider.notifier).updateSaleStatus(
+                                                                 ^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1744:33: Error: The getter 'paymentMethod' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'paymentMethod'.
+    String paymentMethod = sale.paymentMethod;
+                                ^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1849:66: Error: The method 'updateSalePayment' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'updateSalePayment'.
+                          await ref.read(salesProvider.notifier).updateSalePayment(
+                                                                 ^^^^^^^^^^^^^^^^^
+lib/screens/sales/sales_history_screen.dart:1900:14: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    if (sale.items == null || sale.items!.isEmpty) {
+             ^^^^^
+lib/screens/sales/sales_history_screen.dart:1900:36: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    if (sale.items == null || sale.items!.isEmpty) {
+                                   ^^^^^
+lib/screens/sales/sales_history_screen.dart:1911:38: Error: The getter 'items' isn't defined for the class 'Sale'.
+ - 'Sale' is from 'package:cylinder_management/models/sale.dart' ('lib/models/sale.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'items'.
+    final returnableCylinders = sale.items!.where((item) => !item.returnedEmpty).toList();
+                                     ^^^^^
+lib/screens/sales/sales_history_screen.dart:1971:66: Error: The method 'recordCylinderReturn' isn't defined for the class 'SalesNotifier'.
+ - 'SalesNotifier' is from 'package:cylinder_management/providers/sale_provider.dart' ('lib/providers/sale_provider.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'recordCylinderReturn'.
+                          await ref.read(salesProvider.notifier).recordCylinderReturn(
+                                                                 ^^^^^^^^^^^^^^^^^^^^
+lib/services/api_service.dart:133:40: Error: Member not found: 'baseUrl'.
+      Uri url = Uri.parse('${AppConfig.baseUrl}$endpoint');
+                                       ^^^^^^^
+lib/services/api_service.dart:173:42: Error: Member not found: 'baseUrl'.
+      final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
+                                         ^^^^^^^
+lib/services/api_service.dart:210:42: Error: Member not found: 'baseUrl'.
+      final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
+                                         ^^^^^^^
+lib/services/api_service.dart:247:42: Error: Member not found: 'baseUrl'.
+      final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
+                                         ^^^^^^^
+lib/services/api_service.dart:283:42: Error: Member not found: 'baseUrl'.
+      final url = Uri.parse('${AppConfig.baseUrl}$endpoint');
+                                         ^^^^^^^
+lib/services/websocket_service.dart:19:3: Error: 'IWebSocket' isn't a type.
+  IWebSocket? _webSocket;
+  ^^^^^^^^^^
+lib/services/websocket_service.dart:49:20: Error: The method 'createWebSocket' isn't defined for the class 'WebSocketService'.
+ - 'WebSocketService' is from 'package:cylinder_management/services/websocket_service.dart' ('lib/services/websocket_service.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'createWebSocket'.
+      _webSocket = createWebSocket(_baseUrl);
+                   ^^^^^^^^^^^^^^^
+lib/services/qr_service.dart:20:40: Error: Member not found: 'qrCodePrefix'.
+    return generateQRCode('${AppConfig.qrCodePrefix}$qrCode', size: size);
+                                       ^^^^^^^^^^^^
+lib/services/qr_service.dart:25:25: Error: Member not found: 'qrCodePrefix'.
+    return '${AppConfig.qrCodePrefix}$qrCode';
+                        ^^^^^^^^^^^^
+lib/services/qr_service.dart:30:40: Error: Member not found: 'qrCodePrefix'.
+    return qrData.startsWith(AppConfig.qrCodePrefix);
+                                       ^^^^^^^^^^^^
+lib/services/qr_service.dart:36:41: Error: Member not found: 'qrCodePrefix'.
+      return qrData.substring(AppConfig.qrCodePrefix.length);
+                                        ^^^^^^^^^^^^
+Unhandled exception:
+Unsupported operation: Unsupported invalid type InvalidType(<invalid>) (InvalidType). Encountered while compiling
+file:///Users/ruki/Projects/CylinderTracker/frontend/lib/screens/inspection/inspection_screen.dart, which contains the type: FunctionType(Color Function(<invalid>)).
+#0      ProgramCompiler._typeCompilationError (package:dev_compiler/src/kernel/compiler.dart:3470)
+#1      ProgramCompiler._emitType (package:dev_compiler/src/kernel/compiler.dart:3438)
+#2      ProgramCompiler._emitClassSignature (package:dev_compiler/src/kernel/compiler.dart:1713)
+#3      ProgramCompiler._emitClassDeclaration (package:dev_compiler/src/kernel/compiler.dart:1119)
+#4      ProgramCompiler._emitClass (package:dev_compiler/src/kernel/compiler.dart:1001)
+#5      List.forEach (dart:core-patch/growable_array.dart:421)
+#6      ProgramCompiler._emitLibrary (package:dev_compiler/src/kernel/compiler.dart:940)
+#7      List.forEach (dart:core-patch/growable_array.dart:421)
+#8      ProgramCompiler.emitModule (package:dev_compiler/src/kernel/compiler.dart:629)
+#9      IncrementalJavaScriptBundler.compile (package:frontend_server/src/javascript_bundle.dart:246)
+#10     FrontendCompiler.writeJavaScriptBundle (package:frontend_server/frontend_server.dart:877)
+<asynchronous suspension>
+#11     FrontendCompiler.compile (package:frontend_server/frontend_server.dart:693)
+<asynchronous suspension>
+#12     listenAndCompile.<anonymous closure> (package:frontend_server/frontend_server.dart:1401)
+<asynchronous suspension>
+the Dart compiler exited unexpectedly.

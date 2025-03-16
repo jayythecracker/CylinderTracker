@@ -1,32 +1,35 @@
+enum CustomerType { Hospital, Factory, Shop, Workshop, Individual }
+enum PaymentType { Cash, Credit }
+
 class Customer {
   final int id;
   final String name;
-  final String? phoneNumber;
+  final CustomerType type;
+  final String? contactPerson;
+  final String? contactNumber;
   final String? email;
   final String? address;
-  final String? city;
-  final String? state;
-  final String? postalCode;
-  final String? country;
-  final String customerType; // Hospital, Factory, Shop, Workshop, Individual
-  final double balance;
+  final PaymentType paymentType;
+  final double creditLimit;
+  final double currentCredit;
   final String? notes;
+  final bool active;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   Customer({
     required this.id,
     required this.name,
-    this.phoneNumber,
+    required this.type,
+    this.contactPerson,
+    this.contactNumber,
     this.email,
     this.address,
-    this.city,
-    this.state,
-    this.postalCode,
-    this.country,
-    required this.customerType,
-    required this.balance,
+    required this.paymentType,
+    required this.creditLimit,
+    required this.currentCredit,
     this.notes,
+    required this.active,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -36,23 +39,27 @@ class Customer {
     return Customer(
       id: json['id'],
       name: json['name'],
-      phoneNumber: json['phoneNumber'],
+      type: CustomerType.values.firstWhere(
+        (e) => e.toString() == 'CustomerType.${json['type']}',
+        orElse: () => CustomerType.Individual,
+      ),
+      contactPerson: json['contact_person'],
+      contactNumber: json['contact_number'],
       email: json['email'],
       address: json['address'],
-      city: json['city'],
-      state: json['state'],
-      postalCode: json['postalCode'],
-      country: json['country'],
-      customerType: json['customerType'],
-      balance: json['balance'] is int 
-          ? json['balance'].toDouble() 
-          : json['balance'],
+      paymentType: PaymentType.values.firstWhere(
+        (e) => e.toString() == 'PaymentType.${json['payment_type']}',
+        orElse: () => PaymentType.Cash,
+      ),
+      creditLimit: (json['credit_limit'] ?? 0.0).toDouble(),
+      currentCredit: (json['current_credit'] ?? 0.0).toDouble(),
       notes: json['notes'],
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
+      active: json['active'] ?? true,
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
           : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt']) 
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.parse(json['updated_at']) 
           : DateTime.now(),
     );
   }
@@ -62,16 +69,16 @@ class Customer {
     return {
       'id': id,
       'name': name,
-      'phoneNumber': phoneNumber,
+      'type': type.toString().split('.').last,
+      'contact_person': contactPerson,
+      'contact_number': contactNumber,
       'email': email,
       'address': address,
-      'city': city,
-      'state': state,
-      'postalCode': postalCode,
-      'country': country,
-      'customerType': customerType,
-      'balance': balance,
+      'payment_type': paymentType.toString().split('.').last,
+      'credit_limit': creditLimit,
+      'current_credit': currentCredit,
       'notes': notes,
+      'active': active,
     };
   }
 
@@ -79,71 +86,67 @@ class Customer {
   Customer copyWith({
     int? id,
     String? name,
-    String? phoneNumber,
+    CustomerType? type,
+    String? contactPerson,
+    String? contactNumber,
     String? email,
     String? address,
-    String? city,
-    String? state,
-    String? postalCode,
-    String? country,
-    String? customerType,
-    double? balance,
+    PaymentType? paymentType,
+    double? creditLimit,
+    double? currentCredit,
     String? notes,
+    bool? active,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return Customer(
       id: id ?? this.id,
       name: name ?? this.name,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
+      type: type ?? this.type,
+      contactPerson: contactPerson ?? this.contactPerson,
+      contactNumber: contactNumber ?? this.contactNumber,
       email: email ?? this.email,
       address: address ?? this.address,
-      city: city ?? this.city,
-      state: state ?? this.state,
-      postalCode: postalCode ?? this.postalCode,
-      country: country ?? this.country,
-      customerType: customerType ?? this.customerType,
-      balance: balance ?? this.balance,
+      paymentType: paymentType ?? this.paymentType,
+      creditLimit: creditLimit ?? this.creditLimit,
+      currentCredit: currentCredit ?? this.currentCredit,
       notes: notes ?? this.notes,
+      active: active ?? this.active,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  // String representation of the customer
-  @override
-  String toString() {
-    return '$name (ID: $id)';
-  }
-
   // Helper methods to check customer type
-  bool get isHospital => customerType == 'Hospital';
-  bool get isFactory => customerType == 'Factory';
-  bool get isShop => customerType == 'Shop';
-  bool get isWorkshop => customerType == 'Workshop';
-  bool get isIndividual => customerType == 'Individual';
+  bool get isHospital => type == CustomerType.Hospital;
+  bool get isFactory => type == CustomerType.Factory;
+  bool get isShop => type == CustomerType.Shop;
+  bool get isWorkshop => type == CustomerType.Workshop;
+  bool get isIndividual => type == CustomerType.Individual;
 
-  // Get the full address as a string
-  String get fullAddress {
-    final parts = <String>[];
-    if (address != null && address!.isNotEmpty) parts.add(address!);
-    if (city != null && city!.isNotEmpty) parts.add(city!);
-    if (state != null && state!.isNotEmpty) parts.add(state!);
-    if (postalCode != null && postalCode!.isNotEmpty) parts.add(postalCode!);
-    if (country != null && country!.isNotEmpty) parts.add(country!);
-    
-    return parts.join(', ');
-  }
+  // Helper methods for payment and credit
+  bool get isCashCustomer => paymentType == PaymentType.Cash;
+  bool get isCreditCustomer => paymentType == PaymentType.Credit;
+  double get availableCredit => creditLimit - currentCredit;
+  bool get hasAvailableCredit => availableCredit > 0;
 
   // Empty customer for form initialization
   factory Customer.empty() {
     return Customer(
       id: 0,
       name: '',
-      customerType: 'Individual',
-      balance: 0.0,
+      type: CustomerType.Individual,
+      paymentType: PaymentType.Cash,
+      creditLimit: 0.0,
+      currentCredit: 0.0,
+      active: true,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+  }
+
+  @override
+  String toString() {
+    return '$name (${type.toString().split('.').last})';
   }
 }
