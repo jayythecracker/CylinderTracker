@@ -1,128 +1,194 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
-import '../models/user.dart';
-import 'api_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:cylinder_management/config/app_config.dart';
+import 'package:cylinder_management/models/user.dart';
+import 'package:http/http.dart' as http;
 
 class AuthService {
-  final ApiService _apiService;
-  
-  AuthService({ApiService? apiService}) 
-      : _apiService = apiService ?? ApiService();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   
   // Login user
-  Future<User> login(String email, String password) async {
+  Future<User?> login(String email, String password) async {
     try {
-      final response = await _apiService.post(
-        AppConfig.loginEndpoint,
-        data: {
+      final url = Uri.parse('${AppConfig.baseUrl}/auth/login');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
           'email': email,
           'password': password,
-        },
+        }),
       );
       
-      final token = response['token'];
-      final user = User.fromJson(response['user']);
-      
-      // Save token and user to shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConfig.tokenKey, token);
-      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
-      
-      return user;
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        
+        if (jsonData['success']) {
+          // Save token and user data
+          await _storage.write(
+            key: AppConfig.tokenKey,
+            value: jsonData['data']['token'],
+          );
+          
+          await _storage.write(
+            key: AppConfig.userKey,
+            value: json.encode(jsonData['data']['user']),
+          );
+          
+          // Return user
+          return User.fromJson(jsonData['data']['user']);
+        } else {
+          throw Exception(jsonData['message'] ?? 'Login failed');
+        }
+      } else {
+        // Attempt to parse error message
+        try {
+          final jsonData = json.decode(response.body);
+          throw Exception(jsonData['message'] ?? 'Login failed: ${response.statusCode}');
+        } catch (e) {
+          throw Exception('Login failed: ${response.statusCode}');
+        }
+      }
     } catch (e) {
-      rethrow;
+      throw Exception('Login error: $e');
     }
   }
   
-  // Get current user from shared preferences
+  // Get the current authenticated user
   Future<User?> getCurrentUser() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userJson = prefs.getString(AppConfig.userKey);
+      // Check if token exists
+      final token = await getToken();
+      if (token == null) {
+        return null;
+      }
       
-      if (userJson == null) return null;
+      // Try to get user from secure storage first
+      final userData = await _storage.read(key: AppConfig.userKey);
+      if (userData != null) {
+        return User.fromJson(json.decode(userData));
+      }
       
-      return User.fromJson(json.decode(userJson));
+      // If user data doesn't exist, fetch from API
+      final url = Uri.parse('${AppConfig.baseUrl}/auth/me');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        
+        if (jsonData['success']) {
+          // Save user data
+          await _storage.write(
+            key: AppConfig.userKey,
+            value: json.encode(jsonData['data']['user']),
+          );
+          
+          // Return user
+          return User.fromJson(jsonData['data']['user']);
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
     } catch (e) {
       return null;
     }
   }
   
-  // Get user profile from API
-  Future<User> getUserProfile() async {
-    try {
-      final response = await _apiService.get(AppConfig.profileEndpoint);
-      final user = User.fromJson(response['user']);
-      
-      // Update user in shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
-      
-      return user;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Update user profile
-  Future<User> updateProfile(String name, String? contactNumber, String? address) async {
-    try {
-      final response = await _apiService.put(
-        AppConfig.profileEndpoint,
-        data: {
-          'name': name,
-          'contactNumber': contactNumber,
-          'address': address,
-        },
-      );
-      
-      final user = User.fromJson(response['user']);
-      
-      // Update user in shared preferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
-      
-      return user;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Change password
-  Future<void> changePassword(String currentPassword, String newPassword) async {
-    try {
-      await _apiService.put(
-        AppConfig.changePasswordEndpoint,
-        data: {
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        },
-      );
-    } catch (e) {
-      rethrow;
-    }
+  // Get token
+  Future<String?> getToken() async {
+    return await _storage.read(key: AppConfig.tokenKey);
   }
   
   // Logout user
   Future<void> logout() async {
+    await _storage.delete(key: AppConfig.tokenKey);
+    await _storage.delete(key: AppConfig.userKey);
+  }
+  
+  // Update password
+  Future<bool> updatePassword(String currentPassword, String newPassword) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConfig.tokenKey);
-      await prefs.remove(AppConfig.userKey);
+      final token = await getToken();
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+      
+      final url = Uri.parse('${AppConfig.baseUrl}/auth/update-password');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        return jsonData['success'] ?? false;
+      } else {
+        // Attempt to parse error message
+        try {
+          final jsonData = json.decode(response.body);
+          throw Exception(jsonData['message'] ?? 'Password update failed: ${response.statusCode}');
+        } catch (e) {
+          throw Exception('Password update failed: ${response.statusCode}');
+        }
+      }
     } catch (e) {
-      rethrow;
+      throw Exception('Password update error: $e');
     }
   }
   
-  // Check if user is logged in
-  Future<bool> isLoggedIn() async {
+  // Register user (admin only)
+  Future<User?> registerUser(Map<String, dynamic> userData) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(AppConfig.tokenKey);
-      return token != null;
+      final token = await getToken();
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+      
+      final url = Uri.parse('${AppConfig.baseUrl}/auth/register');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: json.encode(userData),
+      );
+      
+      if (response.statusCode == 201) {
+        final jsonData = json.decode(response.body);
+        
+        if (jsonData['success']) {
+          // Return user
+          return User.fromJson(jsonData['data']['user']);
+        } else {
+          throw Exception(jsonData['message'] ?? 'Registration failed');
+        }
+      } else {
+        // Attempt to parse error message
+        try {
+          final jsonData = json.decode(response.body);
+          throw Exception(jsonData['message'] ?? 'Registration failed: ${response.statusCode}');
+        } catch (e) {
+          throw Exception('Registration failed: ${response.statusCode}');
+        }
+      }
     } catch (e) {
-      return false;
+      throw Exception('Registration error: $e');
     }
   }
 }

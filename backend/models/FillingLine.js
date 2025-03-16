@@ -1,7 +1,6 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const { User } = require('./User');
-const { Cylinder, CYLINDER_TYPES } = require('./Cylinder');
+const sequelize = require('../config/db');
+// Relationships will be defined in index.js
 
 const FILLING_LINE_STATUS = {
   IDLE: 'idle',
@@ -33,7 +32,7 @@ const FillingLine = sequelize.define('FillingLine', {
   },
   cylinderType: {
     type: DataTypes.ENUM,
-    values: Object.values(CYLINDER_TYPES),
+    values: ['medical', 'industrial'],
     allowNull: false,
     comment: 'Type of cylinders this line can fill'
   },

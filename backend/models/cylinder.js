@@ -1,83 +1,81 @@
-const { sequelize, Sequelize } = require('../config/db');
-const Factory = require('./factory');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Cylinder = sequelize.define('Cylinder', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  serialNumber: {
-    type: Sequelize.STRING,
-    allowNull: false,
-    unique: true
-  },
-  qrCode: {
-    type: Sequelize.STRING,
+  serial_number: {
+    type: DataTypes.STRING,
     allowNull: false,
     unique: true
   },
   size: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: 'Size of the cylinder (e.g., small, medium, large)'
+  },
+  type: {
+    type: DataTypes.ENUM('Medical', 'Industrial'),
     allowNull: false
   },
-  importDate: {
-    type: Sequelize.DATEONLY,
+  import_date: {
+    type: DataTypes.DATE,
     allowNull: true
   },
-  productionDate: {
-    type: Sequelize.DATEONLY,
+  production_date: {
+    type: DataTypes.DATE,
     allowNull: false
   },
-  originalNumber: {
-    type: Sequelize.STRING,
-    allowNull: true
+  working_pressure: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    comment: 'Working pressure in bars'
   },
-  workingPressure: {
-    type: Sequelize.FLOAT,
-    allowNull: false
-  },
-  designPressure: {
-    type: Sequelize.FLOAT,
-    allowNull: false
-  },
-  gasType: {
-    type: Sequelize.ENUM('Medical', 'Industrial'),
-    allowNull: false
+  design_pressure: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    comment: 'Design pressure in bars'
   },
   status: {
-    type: Sequelize.ENUM('Empty', 'Full', 'In Filling', 'In Inspection', 'Error', 'In Delivery', 'Maintenance'),
+    type: DataTypes.ENUM('Empty', 'Full', 'Error', 'InMaintenance', 'InTransit'),
     defaultValue: 'Empty'
   },
-  lastFilledDate: {
-    type: Sequelize.DATE,
-    allowNull: true
-  },
-  lastInspectionDate: {
-    type: Sequelize.DATE,
-    allowNull: true
-  },
-  factoryId: {
-    type: Sequelize.INTEGER,
+  factory_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: Factory,
+      model: 'factories',
       key: 'id'
     }
   },
-  currentCustomerId: {
-    type: Sequelize.INTEGER,
+  last_filled: {
+    type: DataTypes.DATE,
     allowNull: true
   },
-  isActive: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: true
+  last_inspected: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  qr_code: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
-  timestamps: true
+  tableName: 'cylinders',
+  underscored: true,
+  hooks: {
+    beforeCreate: (cylinder) => {
+      // Generate QR code based on serial number
+      cylinder.qr_code = `CYL-${cylinder.serial_number}`;
+    }
+  }
 });
-
-// Establish relationship with Factory
-Cylinder.belongsTo(Factory, { foreignKey: 'factoryId' });
-Factory.hasMany(Cylinder, { foreignKey: 'factoryId' });
 
 module.exports = Cylinder;

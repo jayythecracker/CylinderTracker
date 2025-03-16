@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
+const sequelize = require('../config/db');
 
 const Factory = sequelize.define('Factory', {
   id: {
@@ -38,4 +38,6 @@ const Factory = sequelize.define('Factory', {
   timestamps: true
 });
 
-module.exports = { Factory };
+module.exports = (sequelize, DataTypes) => {
+  return Factory;
+};

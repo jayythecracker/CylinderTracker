@@ -1,57 +1,82 @@
-const { sequelize, Sequelize } = require('../config/db');
-const User = require('./user');
-const Cylinder = require('./cylinder');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Inspection = sequelize.define('Inspection', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  inspectionDate: {
-    type: Sequelize.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW
-  },
   cylinderId: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: Cylinder,
+      model: 'Cylinders',
       key: 'id'
     }
   },
   inspectedById: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: User,
+      model: 'Users',
       key: 'id'
     }
   },
-  pressureReading: {
-    type: Sequelize.FLOAT,
-    allowNull: false
+  inspectionDate: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
   },
-  visualInspection: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: true
+  pressureCheck: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    comment: 'Measured pressure in bars'
+  },
+  visualCheck: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    comment: 'Result of visual inspection'
+  },
+  valveCheck: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    comment: 'Result of valve inspection'
   },
   result: {
-    type: Sequelize.ENUM('Approved', 'Rejected'),
+    type: DataTypes.ENUM('Approved', 'Rejected'),
     allowNull: false
   },
+  rejectionReason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Reason for rejection if applicable'
+  },
   notes: {
-    type: Sequelize.TEXT,
+    type: DataTypes.TEXT,
     allowNull: true
   }
 }, {
-  timestamps: true
+  hooks: {
+    afterCreate: async (inspection) => {
+      // Update cylinder status and lastInspected date based on inspection result
+      const Cylinder = require('./cylinder');
+      if (inspection.result === 'Approved') {
+        await Cylinder.update(
+          { lastInspected: inspection.inspectionDate },
+          { where: { id: inspection.cylinderId } }
+        );
+      } else if (inspection.result === 'Rejected') {
+        await Cylinder.update(
+          { 
+            status: 'Error',
+            lastInspected: inspection.inspectionDate
+          },
+          { where: { id: inspection.cylinderId } }
+        );
+      }
+    }
+  }
 });
-
-// Relationships
-Cylinder.hasMany(Inspection, { foreignKey: 'cylinderId' });
-Inspection.belongsTo(Cylinder, { foreignKey: 'cylinderId' });
-
-User.hasMany(Inspection, { foreignKey: 'inspectedById' });
-Inspection.belongsTo(User, { foreignKey: 'inspectedById', as: 'InspectedBy' });
 
 module.exports = Inspection;

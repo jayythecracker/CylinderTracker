@@ -1,70 +1,79 @@
-const express = require('express');
-const cors = require('cors');
+const app = require('./app');
 const dotenv = require('dotenv');
-const { Pool } = require('pg');
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const factoryRoutes = require('./routes/factoryRoutes');
-const cylinderRoutes = require('./routes/cylinderRoutes');
-const customerRoutes = require('./routes/customerRoutes');
-const fillingRoutes = require('./routes/fillingRoutes');
-const inspectionRoutes = require('./routes/inspectionRoutes');
-const saleRoutes = require('./routes/saleRoutes');
-const reportRoutes = require('./routes/reportRoutes');
+const { WebSocketServer, WebSocket } = require('ws');
+const http = require('http');
 
 // Load environment variables
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 5000; // Use port 5000 as default for Replit
+const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Store active WebSocket connections
+let activeConnections = [];
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/factories', factoryRoutes);
-app.use('/api/cylinders', cylinderRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/filling', fillingRoutes);
-app.use('/api/inspection', inspectionRoutes);
-app.use('/api/sales', saleRoutes);
-app.use('/api/reports', reportRoutes);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : err
+// Broadcast to all connected clients
+function broadcast(data) {
+  const message = JSON.stringify(data);
+  activeConnections.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
   });
-});
+}
 
-// Database connection and server start
+// Make broadcast function available globally
+global.wsBroadcast = broadcast;
+
 async function startServer() {
   try {
-    // Create a database connection pool
-    const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+    // Create HTTP server
+    const server = http.createServer(app);
+    
+    // Initialize WebSocket server
+    const wss = new WebSocketServer({ server, path: '/ws' });
+    
+    // WebSocket connection handling
+    wss.on('connection', (ws) => {
+      console.log('WebSocket client connected');
+      
+      // Add to active connections
+      activeConnections.push(ws);
+      
+      // Send welcome message
+      ws.send(JSON.stringify({
+        type: 'connection',
+        message: 'Connected to Cylinder Management System'
+      }));
+      
+      // Handle messages from client
+      ws.on('message', (message) => {
+        try {
+          const data = JSON.parse(message);
+          console.log('Received:', data);
+          
+          // Echo back to client for now
+          ws.send(JSON.stringify({
+            type: 'echo',
+            data
+          }));
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      });
+      
+      // Handle disconnection
+      ws.on('close', () => {
+        console.log('WebSocket client disconnected');
+        // Remove from active connections
+        activeConnections = activeConnections.filter(client => client !== ws);
+      });
     });
-
-    // Test database connection
-    const client = await pool.connect();
-    const result = await client.query('SELECT NOW()');
-    console.log('Database connected successfully at', result.rows[0].now);
-    client.release();
     
     // Start the server
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on port ${PORT}`);
+    server.listen(PORT, HOST, () => {
+      console.log(`Server running on http://${HOST}:${PORT}`);
+      console.log(`WebSocket server running on ws://${HOST}:${PORT}/ws`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -73,5 +82,3 @@ async function startServer() {
 }
 
 startServer();
-
-module.exports = app;

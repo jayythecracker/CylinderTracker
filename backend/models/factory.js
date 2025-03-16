@@ -1,40 +1,59 @@
-const { sequelize, Sequelize } = require('../config/db');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Factory = sequelize.define('Factory', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
   name: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: false
   },
   location: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: false
   },
-  contactPerson: {
-    type: Sequelize.STRING,
+  contact_person: {
+    type: DataTypes.STRING,
+    field: 'contact_person',
     allowNull: true
   },
-  contactEmail: {
-    type: Sequelize.STRING,
+  contact_phone: {
+    type: DataTypes.STRING,
+    field: 'contact_phone',
+    allowNull: true
+  },
+  email: {
+    type: DataTypes.STRING,
     allowNull: true,
     validate: {
       isEmail: true
     }
   },
-  contactPhone: {
-    type: Sequelize.STRING,
+  active: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  description: {
+    type: DataTypes.TEXT,
     allowNull: true
   },
-  isActive: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: true
+  created_at: {
+    type: DataTypes.DATE,
+    field: 'created_at'
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    field: 'updated_at'
   }
 }, {
-  timestamps: true
+  tableName: 'factories', // Set explicit table name to match Drizzle schema
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  underscored: true // Use snake_case for all fields
 });
 
 module.exports = Factory;

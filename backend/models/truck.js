@@ -1,46 +1,54 @@
-const { sequelize, Sequelize } = require('../config/db');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Truck = sequelize.define('Truck', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
   licenseNumber: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: false,
     unique: true
   },
   type: {
-    type: Sequelize.STRING,
-    allowNull: false
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: 'Type of truck (e.g., small, medium, large)'
   },
   owner: {
-    type: Sequelize.STRING,
-    allowNull: false
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: 'Owner of the truck (company or individual)'
   },
   capacity: {
-    type: Sequelize.INTEGER,
-    allowNull: false
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: 'Maximum number of cylinders the truck can carry'
   },
-  status: {
-    type: Sequelize.ENUM('Available', 'On Delivery', 'Maintenance'),
-    defaultValue: 'Available'
-  },
-  driverName: {
-    type: Sequelize.STRING,
-    allowNull: true
+  driver: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Name of the driver'
   },
   driverContact: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Contact number of the driver'
+  },
+  status: {
+    type: DataTypes.ENUM('Available', 'InTransit', 'Maintenance', 'OutOfService'),
+    defaultValue: 'Available'
+  },
+  lastMaintenance: {
+    type: DataTypes.DATE,
     allowNull: true
   },
-  isActive: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: true
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
-}, {
-  timestamps: true
 });
 
 module.exports = Truck;

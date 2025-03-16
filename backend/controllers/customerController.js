@@ -1,239 +1,411 @@
-const Customer = require('../models/customer');
+const { Customer, Sale } = require('../models');
 const { Op } = require('sequelize');
 
-// Get all customers with optional filters
-const getAllCustomers = async (req, res) => {
+/**
+ * Get all customers with pagination and filtering
+ */
+exports.getAllCustomers = async (req, res) => {
   try {
+    // Get query parameters for filtering and pagination
     const { 
       type, 
       paymentType, 
+      active,
       search,
       page = 1, 
       limit = 20 
     } = req.query;
     
-    // Build filter conditions
-    const whereConditions = { isActive: true };
+    // Build filter object
+    const filter = {};
     
-    if (type) whereConditions.type = type;
-    if (paymentType) whereConditions.paymentType = paymentType;
+    if (type) {
+      filter.type = type;
+    }
+    
+    if (paymentType) {
+      filter.paymentType = paymentType;
+    }
+    
+    if (active !== undefined) {
+      filter.active = active === 'true';
+    }
     
     if (search) {
-      whereConditions[Op.or] = [
+      filter[Op.or] = [
         { name: { [Op.iLike]: `%${search}%` } },
-        { contactPerson: { [Op.iLike]: `%${search}%` } },
-        { contactNumber: { [Op.iLike]: `%${search}%` } },
-        { email: { [Op.iLike]: `%${search}%` } }
+        { contact: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
+        { address: { [Op.iLike]: `%${search}%` } }
       ];
     }
     
-    // Pagination
+    // Calculate pagination
     const offset = (page - 1) * limit;
     
+    // Find customers with pagination
     const { count, rows: customers } = await Customer.findAndCountAll({
-      where: whereConditions,
+      where: filter,
       order: [['name', 'ASC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
     
-    res.status(200).json({
-      customers,
-      totalCount: count,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+    // Calculate total pages
+    const totalPages = Math.ceil(count / limit);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        customers,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
     });
   } catch (error) {
     console.error('Get all customers error:', error);
-    res.status(500).json({ message: 'Server error while fetching customers' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving customers',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Get customer by ID
-const getCustomerById = async (req, res) => {
+/**
+ * Get customer by ID
+ */
+exports.getCustomerById = async (req, res) => {
   try {
-    const customerId = req.params.id;
+    const { id } = req.params;
     
-    const customer = await Customer.findOne({
-      where: { id: customerId, isActive: true }
-    });
+    // Find customer
+    const customer = await Customer.findByPk(id);
     
     if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
     }
     
-    res.status(200).json({ customer });
+    // Get sales count and total amount
+    const salesStats = await Sale.findOne({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'totalSales'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount']
+      ],
+      where: { customerId: id }
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        customer,
+        stats: {
+          totalSales: salesStats.getDataValue('totalSales') || 0,
+          totalAmount: salesStats.getDataValue('totalAmount') || 0
+        }
+      }
+    });
   } catch (error) {
     console.error('Get customer by ID error:', error);
-    res.status(500).json({ message: 'Server error while fetching customer' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving customer',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Create new customer
-const createCustomer = async (req, res) => {
+/**
+ * Create new customer
+ */
+exports.createCustomer = async (req, res) => {
   try {
     const { 
       name, 
       type, 
       address, 
-      contactPerson, 
-      contactNumber,
-      email,
-      paymentType,
+      contact, 
+      email, 
+      paymentType, 
       priceGroup,
-      creditLimit
+      creditLimit,
+      notes
     } = req.body;
     
-    // Validate required fields
-    if (!name || !type || !address || !contactNumber) {
-      return res.status(400).json({ 
-        message: 'Name, type, address, and contact number are required' 
+    // Validate input
+    if (!name || !type || !address || !contact) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, type, address, and contact are required'
       });
     }
     
     // Create new customer
-    const newCustomer = await Customer.create({
+    const customer = await Customer.create({
       name,
       type,
       address,
-      contactPerson,
-      contactNumber,
+      contact,
       email,
       paymentType: paymentType || 'Cash',
-      priceGroup,
-      creditLimit: creditLimit || 0,
-      currentCredit: 0
+      priceGroup: priceGroup || 'Standard',
+      creditLimit: creditLimit || null,
+      notes: notes || null
     });
     
+    // Send response
     res.status(201).json({
-      message: 'Customer created successfully',
-      customer: newCustomer
+      success: true,
+      data: { customer }
     });
   } catch (error) {
     console.error('Create customer error:', error);
-    res.status(500).json({ message: 'Server error while creating customer' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating customer',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Update customer
-const updateCustomer = async (req, res) => {
+/**
+ * Update customer
+ */
+exports.updateCustomer = async (req, res) => {
   try {
-    const customerId = req.params.id;
+    const { id } = req.params;
     const { 
       name, 
       type, 
       address, 
-      contactPerson, 
-      contactNumber,
-      email,
-      paymentType,
+      contact, 
+      email, 
+      paymentType, 
       priceGroup,
-      creditLimit
+      creditLimit,
+      active,
+      notes
     } = req.body;
     
-    const customer = await Customer.findOne({
-      where: { id: customerId, isActive: true }
-    });
+    // Find customer
+    const customer = await Customer.findByPk(id);
     
     if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
-    }
-    
-    // Update fields if provided
-    if (name) customer.name = name;
-    if (type) customer.type = type;
-    if (address) customer.address = address;
-    if (contactPerson !== undefined) customer.contactPerson = contactPerson;
-    if (contactNumber) customer.contactNumber = contactNumber;
-    if (email !== undefined) customer.email = email;
-    if (paymentType) customer.paymentType = paymentType;
-    if (priceGroup !== undefined) customer.priceGroup = priceGroup;
-    if (creditLimit !== undefined) customer.creditLimit = creditLimit;
-    
-    await customer.save();
-    
-    res.status(200).json({
-      message: 'Customer updated successfully',
-      customer
-    });
-  } catch (error) {
-    console.error('Update customer error:', error);
-    res.status(500).json({ message: 'Server error while updating customer' });
-  }
-};
-
-// Delete customer (soft delete)
-const deleteCustomer = async (req, res) => {
-  try {
-    const customerId = req.params.id;
-    
-    const customer = await Customer.findByPk(customerId);
-    if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
-    }
-    
-    // Soft delete
-    customer.isActive = false;
-    await customer.save();
-    
-    res.status(200).json({ message: 'Customer deleted successfully' });
-  } catch (error) {
-    console.error('Delete customer error:', error);
-    res.status(500).json({ message: 'Server error while deleting customer' });
-  }
-};
-
-// Update customer credit
-const updateCustomerCredit = async (req, res) => {
-  try {
-    const customerId = req.params.id;
-    const { amount, operation } = req.body;
-    
-    if (amount === undefined || !operation) {
-      return res.status(400).json({ 
-        message: 'Amount and operation (add/subtract) are required' 
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
       });
     }
     
-    const customer = await Customer.findOne({
-      where: { id: customerId, isActive: true }
+    // Update customer fields
+    await customer.update({
+      name: name || customer.name,
+      type: type || customer.type,
+      address: address || customer.address,
+      contact: contact || customer.contact,
+      email: email !== undefined ? email : customer.email,
+      paymentType: paymentType || customer.paymentType,
+      priceGroup: priceGroup || customer.priceGroup,
+      creditLimit: creditLimit !== undefined ? creditLimit : customer.creditLimit,
+      active: active !== undefined ? active : customer.active,
+      notes: notes !== undefined ? notes : customer.notes
     });
     
-    if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
-    }
-    
-    // Update credit balance
-    if (operation === 'add') {
-      customer.currentCredit += parseFloat(amount);
-    } else if (operation === 'subtract') {
-      customer.currentCredit -= parseFloat(amount);
-      
-      // Ensure credit doesn't go below 0
-      if (customer.currentCredit < 0) {
-        customer.currentCredit = 0;
-      }
-    } else {
-      return res.status(400).json({ message: 'Invalid operation, use "add" or "subtract"' });
-    }
-    
-    await customer.save();
-    
-    res.status(200).json({
-      message: 'Customer credit updated successfully',
-      customer
+    // Send response
+    res.json({
+      success: true,
+      data: { customer }
     });
   } catch (error) {
-    console.error('Update customer credit error:', error);
-    res.status(500).json({ message: 'Server error while updating customer credit' });
+    console.error('Update customer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating customer',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-module.exports = {
-  getAllCustomers,
-  getCustomerById,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  updateCustomerCredit
+/**
+ * Delete customer
+ */
+exports.deleteCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find customer
+    const customer = await Customer.findByPk(id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+    
+    // Check if customer has sales
+    const salesCount = await Sale.count({
+      where: { customerId: id }
+    });
+    
+    if (salesCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete customer with ${salesCount} sales records. Consider deactivating instead.`
+      });
+    }
+    
+    // Delete customer
+    await customer.destroy();
+    
+    // Send response
+    res.json({
+      success: true,
+      message: 'Customer deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete customer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while deleting customer',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Get customer sales history
+ */
+exports.getCustomerSales = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    
+    // Find customer
+    const customer = await Customer.findByPk(id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+    
+    // Calculate pagination
+    const offset = (page - 1) * limit;
+    
+    // Find sales with pagination
+    const { count, rows: sales } = await Sale.findAndCountAll({
+      where: { customerId: id },
+      order: [['saleDate', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      include: [
+        { model: User, as: 'seller', attributes: ['id', 'name'] },
+        { model: Truck, as: 'truck', attributes: ['id', 'licenseNumber'] }
+      ]
+    });
+    
+    // Calculate total pages
+    const totalPages = Math.ceil(count / limit);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        customer,
+        sales,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get customer sales error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving customer sales',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Update customer balance
+ */
+exports.updateBalance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, notes, operation } = req.body;
+    
+    // Validate input
+    if (!amount || !operation) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount and operation (add/subtract) are required'
+      });
+    }
+    
+    // Find customer
+    const customer = await Customer.findByPk(id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+    
+    let newBalance;
+    
+    // Update balance based on operation
+    if (operation === 'add') {
+      newBalance = parseFloat(customer.balance) + parseFloat(amount);
+    } else if (operation === 'subtract') {
+      newBalance = parseFloat(customer.balance) - parseFloat(amount);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Operation must be either "add" or "subtract"'
+      });
+    }
+    
+    // Update customer balance
+    await customer.update({
+      balance: newBalance,
+      notes: notes ? (customer.notes ? `${customer.notes}\n${notes}` : notes) : customer.notes
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        customer,
+        balanceAdjustment: {
+          previousBalance: parseFloat(customer.balance) - (operation === 'add' ? parseFloat(amount) : -parseFloat(amount)),
+          adjustment: operation === 'add' ? parseFloat(amount) : -parseFloat(amount),
+          newBalance
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Update customer balance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating customer balance',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
 };

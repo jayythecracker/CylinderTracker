@@ -1,142 +1,76 @@
-const { sequelize, Sequelize } = require('../config/db');
-const User = require('./user');
-const Customer = require('./customer');
-const Cylinder = require('./cylinder');
-const Truck = require('./truck');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Sale = sequelize.define('Sale', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  invoiceNumber: {
-    type: Sequelize.STRING,
-    allowNull: false,
-    unique: true
-  },
-  saleDate: {
-    type: Sequelize.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW
-  },
   customerId: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: Customer,
+      model: 'Customers',
       key: 'id'
     }
   },
   sellerId: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: User,
+      model: 'Users',
       key: 'id'
     }
   },
-  deliveryType: {
-    type: Sequelize.ENUM('Truck Delivery', 'Customer Pickup'),
+  saleDate: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
+  deliveryMethod: {
+    type: DataTypes.ENUM('Pickup', 'Delivery'),
     allowNull: false
   },
   truckId: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: Truck,
+      model: 'Trucks',
       key: 'id'
-    }
-  },
-  status: {
-    type: Sequelize.ENUM('Pending', 'In Progress', 'Delivered', 'Completed', 'Cancelled'),
-    defaultValue: 'Pending'
+    },
+    comment: 'Truck ID if delivery method is Delivery'
   },
   totalAmount: {
-    type: Sequelize.FLOAT,
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false
-  },
-  paidAmount: {
-    type: Sequelize.FLOAT,
-    allowNull: false,
-    defaultValue: 0
   },
   paymentStatus: {
-    type: Sequelize.ENUM('Unpaid', 'Partial', 'Paid'),
-    defaultValue: 'Unpaid'
+    type: DataTypes.ENUM('Paid', 'Pending', 'Partial'),
+    defaultValue: 'Pending'
   },
-  paymentMethod: {
-    type: Sequelize.ENUM('Cash', 'Credit'),
-    defaultValue: 'Cash'
+  paidAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00
   },
-  notes: {
-    type: Sequelize.TEXT,
-    allowNull: true
-  },
-  deliveryAddress: {
-    type: Sequelize.TEXT,
-    allowNull: true
-  },
-  customerSignature: {
-    type: Sequelize.TEXT,
-    allowNull: true
+  deliveryStatus: {
+    type: DataTypes.ENUM('Pending', 'InTransit', 'Delivered', 'Cancelled'),
+    defaultValue: 'Pending'
   },
   deliveryDate: {
-    type: Sequelize.DATE,
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  signatureImage: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Base64 encoded signature image'
+  },
+  notes: {
+    type: DataTypes.TEXT,
     allowNull: true
   }
-}, {
-  timestamps: true
 });
 
-const SaleItem = sequelize.define('SaleItem', {
-  id: {
-    type: Sequelize.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  saleId: {
-    type: Sequelize.INTEGER,
-    references: {
-      model: Sale,
-      key: 'id'
-    }
-  },
-  cylinderId: {
-    type: Sequelize.INTEGER,
-    references: {
-      model: Cylinder,
-      key: 'id'
-    }
-  },
-  price: {
-    type: Sequelize.FLOAT,
-    allowNull: false
-  },
-  returnedEmpty: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: false
-  },
-  returnDate: {
-    type: Sequelize.DATE,
-    allowNull: true
-  }
-}, {
-  timestamps: true
-});
-
-// Relationships
-Customer.hasMany(Sale, { foreignKey: 'customerId' });
-Sale.belongsTo(Customer, { foreignKey: 'customerId' });
-
-User.hasMany(Sale, { foreignKey: 'sellerId' });
-Sale.belongsTo(User, { foreignKey: 'sellerId', as: 'Seller' });
-
-Truck.hasMany(Sale, { foreignKey: 'truckId' });
-Sale.belongsTo(Truck, { foreignKey: 'truckId' });
-
-Sale.hasMany(SaleItem, { foreignKey: 'saleId' });
-SaleItem.belongsTo(Sale, { foreignKey: 'saleId' });
-
-Cylinder.hasMany(SaleItem, { foreignKey: 'cylinderId' });
-SaleItem.belongsTo(Cylinder, { foreignKey: 'cylinderId' });
-
-module.exports = { Sale, SaleItem };
+module.exports = Sale;

@@ -1,162 +1,168 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/inspection.dart';
-import '../services/api_service.dart';
-import '../config/app_config.dart';
+import 'package:cylinder_management/models/inspection.dart';
+import 'package:cylinder_management/services/api_service.dart';
 
-// Provider for inspections list state
-final inspectionsProvider = AsyncNotifierProvider<InspectionsNotifier, List<Inspection>>(() {
-  return InspectionsNotifier();
+// Provider for inspections list
+final inspectionsProvider = StateNotifierProvider<InspectionsNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return InspectionsNotifier(ApiService());
 });
 
-// Provider for selected inspection
-final selectedInspectionProvider = StateProvider<Inspection?>((ref) => null);
-
-// Provider for inspection filter parameters
-final inspectionFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'result': null,
-    'cylinderId': null,
-    'inspectedById': null,
-    'startDate': null,
-    'endDate': null,
-    'page': 1,
-    'limit': AppConfig.defaultPageSize,
-  };
+// Provider for inspection details
+final inspectionDetailsProvider = StateNotifierProvider.family<InspectionDetailsNotifier, AsyncValue<Inspection?>, int>((ref, id) {
+  return InspectionDetailsNotifier(ApiService(), id);
 });
 
-// Provider for inspections pagination info
-final inspectionPaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'totalCount': 0,
-    'currentPage': 1,
-    'totalPages': 1,
-  };
+// Provider for inspection stats
+final inspectionStatsProvider = StateNotifierProvider<InspectionStatsNotifier, AsyncValue<Map<String, dynamic>?>>((ref) {
+  return InspectionStatsNotifier(ApiService());
 });
 
-// Provider for cylinder inspection history
-final cylinderInspectionHistoryProvider = AsyncNotifierProvider<CylinderInspectionHistoryNotifier, List<Inspection>>(() {
-  return CylinderInspectionHistoryNotifier();
-});
-
-class InspectionsNotifier extends AsyncNotifier<List<Inspection>> {
-  late ApiService _apiService;
+// Notifier for inspections list
+class InspectionsNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
   
-  @override
-  Future<List<Inspection>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
-  }
+  InspectionsNotifier(this._apiService) : super(const AsyncValue.loading());
   
-  // Get all inspections with optional filters
-  Future<void> getInspections({Map<String, dynamic>? filters}) async {
-    state = const AsyncValue.loading();
-    
+  // Fetch all inspections with pagination
+  Future<void> fetchInspections({Map<String, dynamic>? filters, int page = 1, int limit = 20}) async {
     try {
-      final currentFilters = ref.read(inspectionFilterProvider);
-      final queryParams = filters ?? currentFilters;
+      state = const AsyncValue.loading();
       
-      // Update filter provider if new filters are provided
-      if (filters != null) {
-        ref.read(inspectionFilterProvider.notifier).state = {
-          ...currentFilters,
-          ...filters,
-        };
-      }
+      final queryParams = {
+        'page': page,
+        'limit': limit,
+        ...?filters,
+      };
       
-      final response = await _apiService.get(
-        AppConfig.inspectionsEndpoint,
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/inspections',
+        (data) => {
+          'inspections': (data['inspections'] as List).map((item) => Inspection.fromJson(item)).toList(),
+          'pagination': data['pagination'],
+        },
         queryParams: queryParams,
       );
       
-      final List<Inspection> inspections = (response['inspections'] as List)
-          .map((inspectionData) => Inspection.fromJson(inspectionData))
-          .toList();
-      
-      // Update pagination info
-      ref.read(inspectionPaginationProvider.notifier).state = {
-        'totalCount': response['totalCount'],
-        'currentPage': response['currentPage'],
-        'totalPages': response['totalPages'],
-      };
-      
-      state = AsyncValue.data(inspections);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Get inspection by ID
-  Future<Inspection> getInspectionById(int id) async {
-    try {
-      final response = await _apiService.get('${AppConfig.inspectionsEndpoint}/$id');
-      return Inspection.fromJson(response['inspection']);
-    } catch (e) {
-      rethrow;
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch inspections',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
   
   // Create new inspection
-  Future<Inspection> createInspection(Inspection inspection) async {
+  Future<Inspection?> createInspection(Map<String, dynamic> inspectionData) async {
     try {
-      final response = await _apiService.post(
-        AppConfig.inspectionsEndpoint,
-        data: inspection.toCreateJson(),
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/inspections',
+        inspectionData,
+        (data) => {'inspection': Inspection.fromJson(data['inspection'])},
       );
       
-      final newInspection = Inspection.fromJson(response['inspection']);
-      
-      // Update state with new inspection
-      state = AsyncValue.data([...state.value ?? [], newInspection]);
-      
-      return newInspection;
+      if (response.success && response.data != null) {
+        // Refresh inspections list
+        fetchInspections();
+        return response.data!['inspection'];
+      } else {
+        throw Exception(response.message ?? 'Failed to create inspection');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Batch inspect cylinders
-  Future<void> batchInspect(List<int> cylinderIds, String result, String? notes) async {
+  // Batch create inspections (approve all)
+  Future<Map<String, dynamic>?> batchCreateInspections(Map<String, dynamic> inspectionData) async {
     try {
-      await _apiService.post(
-        '${AppConfig.inspectionsEndpoint}/batch',
-        data: Inspection.toBatchInspectJson(
-          cylinderIds: cylinderIds,
-          result: result,
-          notes: notes,
-        ),
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/inspections/batch',
+        inspectionData,
+        (data) => data,
       );
       
-      // Refresh inspections list
-      await getInspections();
+      if (response.success && response.data != null) {
+        // Refresh inspections list
+        fetchInspections();
+        return response.data;
+      } else {
+        throw Exception(response.message ?? 'Failed to create batch inspections');
+      }
     } catch (e) {
       rethrow;
     }
   }
 }
 
-class CylinderInspectionHistoryNotifier extends AsyncNotifier<List<Inspection>> {
-  late ApiService _apiService;
+// Notifier for inspection details
+class InspectionDetailsNotifier extends StateNotifier<AsyncValue<Inspection?>> {
+  final ApiService _apiService;
+  final int inspectionId;
   
-  @override
-  Future<List<Inspection>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
+  InspectionDetailsNotifier(this._apiService, this.inspectionId) : super(const AsyncValue.loading()) {
+    if (inspectionId > 0) {
+      fetchInspectionDetails();
+    } else {
+      state = const AsyncValue.data(null);
+    }
   }
   
-  // Get cylinder inspection history
-  Future<void> getCylinderInspectionHistory(int cylinderId) async {
-    state = const AsyncValue.loading();
-    
+  // Fetch inspection details
+  Future<void> fetchInspectionDetails() async {
     try {
-      final response = await _apiService.get('${AppConfig.inspectionsEndpoint}/cylinder/$cylinderId');
+      state = const AsyncValue.loading();
       
-      final List<Inspection> inspections = (response['inspections'] as List)
-          .map((inspectionData) => Inspection.fromJson(inspectionData))
-          .toList();
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/inspections/$inspectionId',
+        (data) => {'inspection': Inspection.fromJson(data['inspection'])},
+      );
       
-      state = AsyncValue.data(inspections);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!['inspection']);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch inspection details',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+}
+
+// Notifier for inspection stats
+class InspectionStatsNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>> {
+  final ApiService _apiService;
+  
+  InspectionStatsNotifier(this._apiService) : super(const AsyncValue.data(null));
+  
+  // Fetch inspection stats
+  Future<void> fetchStats({String period = 'daily'}) async {
+    try {
+      state = const AsyncValue.loading();
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/inspections/stats/overview',
+        (data) => data,
+        queryParams: {'period': period},
+      );
+      
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch inspection statistics',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
 }

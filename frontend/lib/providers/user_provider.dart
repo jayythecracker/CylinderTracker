@@ -1,137 +1,159 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../config/app_config.dart';
 
-// Provider for API service
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
-});
+enum UserFilterType {
+  all,
+  admin,
+  manager,
+  filler,
+  seller,
+  active,
+  inactive
+}
 
-// Provider for users list state
-final usersProvider = AsyncNotifierProvider<UsersNotifier, List<User>>(() {
-  return UsersNotifier();
-});
+class UsersState {
+  final List<User> users;
+  final bool isLoading;
+  final String? error;
+  final UserFilterType filter;
 
-// Provider for selected user
-final selectedUserProvider = StateProvider<User?>((ref) => null);
+  UsersState({
+    this.users = const [],
+    this.isLoading = false,
+    this.error,
+    this.filter = UserFilterType.all,
+  });
 
-class UsersNotifier extends AsyncNotifier<List<User>> {
-  late ApiService _apiService;
-  
-  @override
-  Future<List<User>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
+  UsersState copyWith({
+    List<User>? users,
+    bool? isLoading,
+    String? error,
+    UserFilterType? filter,
+  }) {
+    return UsersState(
+      users: users ?? this.users,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+      filter: filter ?? this.filter,
+    );
   }
-  
-  // Get all users
-  Future<void> getUsers() async {
-    state = const AsyncValue.loading();
-    
-    try {
-      final response = await _apiService.get(AppConfig.usersEndpoint);
-      final List<User> users = (response['users'] as List)
-          .map((userData) => User.fromJson(userData))
-          .toList();
-      
-      state = AsyncValue.data(users);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Get user by ID
-  Future<User> getUserById(int id) async {
-    try {
-      final response = await _apiService.get('${AppConfig.usersEndpoint}/$id');
-      return User.fromJson(response['user']);
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Create user
-  Future<User> createUser(String name, String email, String password, String role, 
-      String? contactNumber, String? address) async {
-    try {
-      final response = await _apiService.post(
-        AppConfig.usersEndpoint,
-        data: {
-          'name': name,
-          'email': email,
-          'password': password,
-          'role': role,
-          'contactNumber': contactNumber,
-          'address': address,
-        },
-      );
-      
-      final newUser = User.fromJson(response['user']);
-      
-      // Update state with new user
-      state = AsyncValue.data([...state.value ?? [], newUser]);
-      
-      return newUser;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Update user
-  Future<User> updateUser(int id, String name, String email, String role, 
-      String? contactNumber, String? address, bool isActive) async {
-    try {
-      final response = await _apiService.put(
-        '${AppConfig.usersEndpoint}/$id',
-        data: {
-          'name': name,
-          'email': email,
-          'role': role,
-          'contactNumber': contactNumber,
-          'address': address,
-          'isActive': isActive,
-        },
-      );
-      
-      final updatedUser = User.fromJson(response['user']);
-      
-      // Update state with updated user
-      state = AsyncValue.data(
-        state.value?.map((user) => user.id == id ? updatedUser : user).toList() ?? [],
-      );
-      
-      return updatedUser;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Reset user password
-  Future<void> resetPassword(int id, String newPassword) async {
-    try {
-      await _apiService.put(
-        '${AppConfig.usersEndpoint}/$id/reset-password',
-        data: {
-          'newPassword': newPassword,
-        },
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Delete user
-  Future<void> deleteUser(int id) async {
-    try {
-      await _apiService.delete('${AppConfig.usersEndpoint}/$id');
-      
-      // Update state by removing deleted user
-      state = AsyncValue.data(
-        state.value?.where((user) => user.id != id).toList() ?? [],
-      );
-    } catch (e) {
-      rethrow;
+
+  List<User> get filteredUsers {
+    switch (filter) {
+      case UserFilterType.admin:
+        return users.where((user) => user.role == 'Admin').toList();
+      case UserFilterType.manager:
+        return users.where((user) => user.role == 'Manager').toList();
+      case UserFilterType.filler:
+        return users.where((user) => user.role == 'Filler').toList();
+      case UserFilterType.seller:
+        return users.where((user) => user.role == 'Seller').toList();
+      case UserFilterType.active:
+        return users.where((user) => user.isActive).toList();
+      case UserFilterType.inactive:
+        return users.where((user) => !user.isActive).toList();
+      case UserFilterType.all:
+      default:
+        return users;
     }
   }
 }
+
+class UserNotifier extends StateNotifier<UsersState> {
+  final ApiService _apiService;
+
+  UserNotifier(this._apiService) : super(UsersState()) {
+    fetchUsers();
+  }
+
+  Future<void> fetchUsers() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final users = await _apiService.getUsers();
+      state = state.copyWith(users: users, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<User?> getUserById(int id) async {
+    try {
+      return await _apiService.getUserById(id);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      return null;
+    }
+  }
+
+  Future<bool> createUser(Map<String, dynamic> userData) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _apiService.createUser(userData);
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> updateUser(int id, Map<String, dynamic> userData) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _apiService.updateUser(id, userData);
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> resetUserPassword(int id, String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _apiService.resetUserPassword(id, newPassword);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteUser(int id) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _apiService.deleteUser(id);
+      await fetchUsers();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  void setFilter(UserFilterType filter) {
+    state = state.copyWith(filter: filter);
+  }
+}
+
+final userProvider = StateNotifierProvider<UserNotifier, UsersState>((ref) {
+  final apiService = ref.watch(apiServiceProvider);
+  return UserNotifier(apiService);
+});

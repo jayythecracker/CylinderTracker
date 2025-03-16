@@ -1,258 +1,194 @@
-import 'user.dart';
-import 'cylinder.dart';
+import 'package:cylinder_management/models/cylinder.dart';
+import 'package:cylinder_management/models/user.dart';
 
-class FillingLine {
+class Filling {
   final int id;
-  final String name;
-  final int capacity;
-  final String gasType;
-  final String status;
-  final bool isActive;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  FillingLine({
-    required this.id,
-    required this.name,
-    required this.capacity,
-    required this.gasType,
-    required this.status,
-    required this.isActive,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory FillingLine.fromJson(Map<String, dynamic> json) {
-    return FillingLine(
-      id: json['id'],
-      name: json['name'],
-      capacity: json['capacity'],
-      gasType: json['gasType'],
-      status: json['status'],
-      isActive: json['isActive'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'capacity': capacity,
-      'gasType': gasType,
-      'status': status,
-      'isActive': isActive,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  // For creating a new filling line
-  Map<String, dynamic> toCreateJson() {
-    return {
-      'name': name,
-      'capacity': capacity,
-      'gasType': gasType,
-    };
-  }
-
-  FillingLine copyWith({
-    int? id,
-    String? name,
-    int? capacity,
-    String? gasType,
-    String? status,
-    bool? isActive,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-  }) {
-    return FillingLine(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      capacity: capacity ?? this.capacity,
-      gasType: gasType ?? this.gasType,
-      status: status ?? this.status,
-      isActive: isActive ?? this.isActive,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-    );
-  }
-}
-
-class FillingBatch {
-  final int id;
-  final String batchNumber;
-  final DateTime startTime;
-  final DateTime? endTime;
-  final String status;
-  final int fillingLineId;
+  final int cylinderId;
   final int startedById;
   final int? endedById;
-  final String? notes;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final FillingLine? fillingLine;
-  final User? startedBy;
-  final User? endedBy;
-  final List<FillingDetail>? details;
-
-  FillingBatch({
-    required this.id,
-    required this.batchNumber,
-    required this.startTime,
-    this.endTime,
-    required this.status,
-    required this.fillingLineId,
-    required this.startedById,
-    this.endedById,
-    this.notes,
-    required this.createdAt,
-    required this.updatedAt,
-    this.fillingLine,
-    this.startedBy,
-    this.endedBy,
-    this.details,
-  });
-
-  factory FillingBatch.fromJson(Map<String, dynamic> json) {
-    return FillingBatch(
-      id: json['id'],
-      batchNumber: json['batchNumber'],
-      startTime: DateTime.parse(json['startTime']),
-      endTime: json['endTime'] != null ? DateTime.parse(json['endTime']) : null,
-      status: json['status'],
-      fillingLineId: json['fillingLineId'],
-      startedById: json['startedById'],
-      endedById: json['endedById'],
-      notes: json['notes'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-      fillingLine: json['FillingLine'] != null ? FillingLine.fromJson(json['FillingLine']) : null,
-      startedBy: json['StartedBy'] != null ? User.fromJson(json['StartedBy']) : null,
-      endedBy: json['EndedBy'] != null ? User.fromJson(json['EndedBy']) : null,
-      details: json['FillingDetails'] != null
-          ? (json['FillingDetails'] as List).map((e) => FillingDetail.fromJson(e)).toList()
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'batchNumber': batchNumber,
-      'startTime': startTime.toIso8601String(),
-      'endTime': endTime?.toIso8601String(),
-      'status': status,
-      'fillingLineId': fillingLineId,
-      'startedById': startedById,
-      'endedById': endedById,
-      'notes': notes,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  // For starting a new filling batch
-  Map<String, dynamic> toStartBatchJson() {
-    return {
-      'fillingLineId': fillingLineId,
-      'cylinderIds': details?.map((d) => d.cylinderId).toList() ?? [],
-      'notes': notes,
-    };
-  }
-
-  // For completing a filling batch
-  Map<String, dynamic> toCompleteBatchJson() {
-    return {
-      'cylinderResults': details?.map((d) => {
-        'cylinderId': d.cylinderId,
-        'finalPressure': d.finalPressure,
-        'status': d.status,
-        'notes': d.notes,
-      }).toList() ?? [],
-      'notes': notes,
-    };
-  }
-}
-
-class FillingDetail {
-  final int id;
-  final int fillingBatchId;
-  final int cylinderId;
+  final int lineNumber;
+  final DateTime startTime;
+  final DateTime? endTime;
   final double initialPressure;
   final double? finalPressure;
-  final String status;
+  final double targetPressure;
+  final String gasType;
+  final String status; // InProgress, Completed, Failed
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // Optional nested objects
   final Cylinder? cylinder;
+  final User? startedBy;
+  final User? endedBy;
 
-  FillingDetail({
+  Filling({
     required this.id,
-    required this.fillingBatchId,
     required this.cylinderId,
+    required this.startedById,
+    this.endedById,
+    required this.lineNumber,
+    required this.startTime,
+    this.endTime,
     required this.initialPressure,
     this.finalPressure,
+    required this.targetPressure,
+    required this.gasType,
     required this.status,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
     this.cylinder,
+    this.startedBy,
+    this.endedBy,
   });
 
-  factory FillingDetail.fromJson(Map<String, dynamic> json) {
-    return FillingDetail(
+  // Factory method to create a Filling from JSON
+  factory Filling.fromJson(Map<String, dynamic> json) {
+    return Filling(
       id: json['id'],
-      fillingBatchId: json['fillingBatchId'],
       cylinderId: json['cylinderId'],
-      initialPressure: json['initialPressure'].toDouble(),
-      finalPressure: json['finalPressure'] != null ? json['finalPressure'].toDouble() : null,
+      startedById: json['startedById'],
+      endedById: json['endedById'],
+      lineNumber: json['lineNumber'],
+      startTime: DateTime.parse(json['startTime']),
+      endTime: json['endTime'] != null ? DateTime.parse(json['endTime']) : null,
+      initialPressure: json['initialPressure'] is int 
+        ? json['initialPressure'].toDouble() 
+        : json['initialPressure'],
+      finalPressure: json['finalPressure'] != null 
+        ? (json['finalPressure'] is int 
+          ? json['finalPressure'].toDouble() 
+          : json['finalPressure']) 
+        : null,
+      targetPressure: json['targetPressure'] is int 
+        ? json['targetPressure'].toDouble() 
+        : json['targetPressure'],
+      gasType: json['gasType'],
       status: json['status'],
       notes: json['notes'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-      cylinder: json['Cylinder'] != null ? Cylinder.fromJson(json['Cylinder']) : null,
+      createdAt: json['createdAt'] != null 
+        ? DateTime.parse(json['createdAt']) 
+        : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+        ? DateTime.parse(json['updatedAt']) 
+        : DateTime.now(),
+      cylinder: json['cylinder'] != null ? Cylinder.fromJson(json['cylinder']) : null,
+      startedBy: json['startedBy'] != null ? User.fromJson(json['startedBy']) : null,
+      endedBy: json['endedBy'] != null ? User.fromJson(json['endedBy']) : null,
     );
   }
 
+  // Convert Filling to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'fillingBatchId': fillingBatchId,
       'cylinderId': cylinderId,
+      'startedById': startedById,
+      'endedById': endedById,
+      'lineNumber': lineNumber,
+      'startTime': startTime.toIso8601String(),
+      'endTime': endTime?.toIso8601String(),
       'initialPressure': initialPressure,
       'finalPressure': finalPressure,
+      'targetPressure': targetPressure,
+      'gasType': gasType,
       'status': status,
       'notes': notes,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  FillingDetail copyWith({
+  // Create a copy of this Filling with the given fields replaced
+  Filling copyWith({
     int? id,
-    int? fillingBatchId,
     int? cylinderId,
+    int? startedById,
+    int? endedById,
+    int? lineNumber,
+    DateTime? startTime,
+    DateTime? endTime,
     double? initialPressure,
     double? finalPressure,
+    double? targetPressure,
+    String? gasType,
     String? status,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
     Cylinder? cylinder,
+    User? startedBy,
+    User? endedBy,
   }) {
-    return FillingDetail(
+    return Filling(
       id: id ?? this.id,
-      fillingBatchId: fillingBatchId ?? this.fillingBatchId,
       cylinderId: cylinderId ?? this.cylinderId,
+      startedById: startedById ?? this.startedById,
+      endedById: endedById ?? this.endedById,
+      lineNumber: lineNumber ?? this.lineNumber,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
       initialPressure: initialPressure ?? this.initialPressure,
       finalPressure: finalPressure ?? this.finalPressure,
+      targetPressure: targetPressure ?? this.targetPressure,
+      gasType: gasType ?? this.gasType,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       cylinder: cylinder ?? this.cylinder,
+      startedBy: startedBy ?? this.startedBy,
+      endedBy: endedBy ?? this.endedBy,
     );
+  }
+
+  // Create a Filling for new Filling form (for create operation)
+  factory Filling.empty() {
+    return Filling(
+      id: 0,
+      cylinderId: 0,
+      startedById: 0,
+      lineNumber: 1,
+      startTime: DateTime.now(),
+      initialPressure: 0.0,
+      targetPressure: 0.0,
+      gasType: '',
+      status: 'InProgress',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  // Helper method to check if filling is in progress
+  bool get isInProgress => status == 'InProgress';
+
+  // Helper method to check if filling is completed
+  bool get isCompleted => status == 'Completed';
+
+  // Helper method to check if filling failed
+  bool get isFailed => status == 'Failed';
+
+  // Helper method to calculate filling duration
+  Duration get duration {
+    if (endTime != null) {
+      return endTime!.difference(startTime);
+    } else {
+      return DateTime.now().difference(startTime);
+    }
+  }
+
+  // Helper method to format duration as string
+  String get durationFormatted {
+    final duration = this.duration;
+    
+    if (duration.inDays > 0) {
+      return '${duration.inDays}d ${duration.inHours.remainder(24)}h';
+    } else if (duration.inHours > 0) {
+      return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
+    } else if (duration.inMinutes > 0) {
+      return '${duration.inMinutes}m ${duration.inSeconds.remainder(60)}s';
+    } else {
+      return '${duration.inSeconds}s';
+    }
   }
 }

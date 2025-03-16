@@ -1,35 +1,45 @@
-const { verifyToken } = require('../config/auth');
+const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config/auth');
 
-// Authentication middleware
-exports.auth = async (req, res, next) => {
+/**
+ * Middleware to authenticate JWT tokens
+ */
+const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Authentication required. No token provided.' 
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Authentication required. Invalid token format.' 
+    });
+  }
+
   try {
-    // Get token from Authorization header
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Authentication required. No token provided.' });
-    }
-
-    // Extract the token
-    const token = authHeader.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required. Invalid token format.' });
-    }
-
-    // Verify token
-    const decoded = verifyToken(token);
-    
-    if (!decoded) {
-      return res.status(401).json({ message: 'Authentication failed. Invalid or expired token.' });
-    }
-
-    // Add user info to request
-    req.user = decoded;
-    
+    const user = jwt.verify(token, jwtSecret);
+    req.user = user;
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(401).json({ message: 'Authentication failed' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token expired. Please login again.' 
+      });
+    }
+    
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Invalid token. Authentication failed.' 
+    });
   }
 };
+
+module.exports = authenticateJWT;

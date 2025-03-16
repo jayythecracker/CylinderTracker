@@ -4,12 +4,16 @@ class Truck {
   final String type;
   final String owner;
   final int capacity;
-  final String status;
-  final String? driverName;
+  final String? driver;
   final String? driverContact;
-  final bool isActive;
+  final String status; // Available, InTransit, Maintenance, OutOfService
+  final DateTime? lastMaintenance;
+  final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // Optional field when truck details are fetched
+  final int? activeSalesCount;
 
   Truck({
     required this.id,
@@ -17,14 +21,17 @@ class Truck {
     required this.type,
     required this.owner,
     required this.capacity,
-    required this.status,
-    this.driverName,
+    this.driver,
     this.driverContact,
-    required this.isActive,
+    required this.status,
+    this.lastMaintenance,
+    this.notes,
     required this.createdAt,
     required this.updatedAt,
+    this.activeSalesCount,
   });
 
+  // Factory method to create a Truck from JSON
   factory Truck.fromJson(Map<String, dynamic> json) {
     return Truck(
       id: json['id'],
@@ -32,15 +39,24 @@ class Truck {
       type: json['type'],
       owner: json['owner'],
       capacity: json['capacity'],
-      status: json['status'],
-      driverName: json['driverName'],
+      driver: json['driver'],
       driverContact: json['driverContact'],
-      isActive: json['isActive'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      status: json['status'],
+      lastMaintenance: json['lastMaintenance'] != null 
+        ? DateTime.parse(json['lastMaintenance']) 
+        : null,
+      notes: json['notes'],
+      createdAt: json['createdAt'] != null 
+        ? DateTime.parse(json['createdAt']) 
+        : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+        ? DateTime.parse(json['updatedAt']) 
+        : DateTime.now(),
+      activeSalesCount: json['activeSalesCount'],
     );
   }
 
+  // Convert Truck to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -48,39 +64,29 @@ class Truck {
       'type': type,
       'owner': owner,
       'capacity': capacity,
+      'driver': driver,
+      'driverContact': driverContact,
       'status': status,
-      'driverName': driverName,
-      'driverContact': driverContact,
-      'isActive': isActive,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'lastMaintenance': lastMaintenance?.toIso8601String(),
+      'notes': notes,
     };
   }
 
-  // For creating a new truck
-  Map<String, dynamic> toCreateJson() {
-    return {
-      'licenseNumber': licenseNumber,
-      'type': type,
-      'owner': owner,
-      'capacity': capacity,
-      'driverName': driverName,
-      'driverContact': driverContact,
-    };
-  }
-
+  // Create a copy of this Truck with the given fields replaced
   Truck copyWith({
     int? id,
     String? licenseNumber,
     String? type,
     String? owner,
     int? capacity,
-    String? status,
-    String? driverName,
+    String? driver,
     String? driverContact,
-    bool? isActive,
+    String? status,
+    DateTime? lastMaintenance,
+    String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? activeSalesCount,
   }) {
     return Truck(
       id: id ?? this.id,
@@ -88,12 +94,43 @@ class Truck {
       type: type ?? this.type,
       owner: owner ?? this.owner,
       capacity: capacity ?? this.capacity,
-      status: status ?? this.status,
-      driverName: driverName ?? this.driverName,
+      driver: driver ?? this.driver,
       driverContact: driverContact ?? this.driverContact,
-      isActive: isActive ?? this.isActive,
+      status: status ?? this.status,
+      lastMaintenance: lastMaintenance ?? this.lastMaintenance,
+      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      activeSalesCount: activeSalesCount ?? this.activeSalesCount,
     );
   }
+
+  // Create a Truck for new Truck form (for create operation)
+  factory Truck.empty() {
+    return Truck(
+      id: 0,
+      licenseNumber: '',
+      type: '',
+      owner: '',
+      capacity: 0,
+      status: 'Available',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  // Helper method to check if truck is available
+  bool get isAvailable => status == 'Available';
+
+  // Helper method to check if truck is in transit
+  bool get isInTransit => status == 'InTransit';
+
+  // Helper method to check if truck is in maintenance
+  bool get isInMaintenance => status == 'Maintenance';
+
+  // Helper method to check if truck is out of service
+  bool get isOutOfService => status == 'OutOfService';
+
+  // Helper method to format capacity as string
+  String get capacityFormatted => '$capacity cylinders';
 }

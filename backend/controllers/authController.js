@@ -1,128 +1,226 @@
-const User = require('../models/user');
-const { generateToken, comparePassword } = require('../config/auth');
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
+const { jwtSecret, jwtExpiresIn } = require('../config/auth');
 
-// Controller for user login
-const login = async (req, res) => {
+/**
+ * Login user
+ */
+exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
+    const { username, password } = req.body;
+    
     // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required'
+      });
     }
-
-    // Find user by email
-    const user = await User.findOne({ where: { email } });
+    
+    // Find user by username
+    const user = await User.findOne({ where: { username } });
+    
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
     }
-
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({ message: 'Account is inactive. Please contact administrator.' });
+    
+    // Validate password
+    const isPasswordValid = await user.validatePassword(password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid username or password'
+      });
     }
-
-    // Verify password
-    const isMatch = await comparePassword(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
+    
     // Generate JWT token
-    const token = generateToken(user);
-
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: user.toJSON()
+    const token = jwt.sign(
+      { 
+        id: user.id,
+        full_name: user.full_name,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      },
+      jwtSecret,
+      { expiresIn: jwtExpiresIn }
+    );
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        },
+        token
+      }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred during login',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Controller to get current user's profile
-const getProfile = async (req, res) => {
+/**
+ * Register new user (admin only)
+ */
+exports.register = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { full_name, username, email, password, role } = req.body;
     
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    // Validate input
+    if (!full_name || !username || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        message: 'Full name, username, password, and role are required'
+      });
     }
-
-    res.status(200).json({ user: user.toJSON() });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error while getting profile' });
-  }
-};
-
-// Controller to update current user's profile
-const updateProfile = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { name, contactNumber, address } = req.body;
     
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    // Check if username is already in use
+    const existingUser = await User.findOne({ where: { username } });
+    
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username is already in use'
+      });
     }
-
-    // Update allowed fields
-    if (name) user.name = name;
-    if (contactNumber) user.contactNumber = contactNumber;
-    if (address) user.address = address;
     
-    await user.save();
-
-    res.status(200).json({ 
-      message: 'Profile updated successfully',
-      user: user.toJSON()
+    // Create new user
+    const user = await User.create({
+      full_name,
+      username,
+      email,
+      password,
+      role
+    });
+    
+    // Send response (exclude password)
+    res.status(201).json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        }
+      }
     });
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Server error while updating profile' });
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred during registration',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Controller to change password
-const changePassword = async (req, res) => {
+/**
+ * Get current user profile
+ */
+exports.getMe = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { id } = req.user;
+    
+    // Find user
+    const user = await User.findByPk(id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    // Send response (exclude password)
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          full_name: user.full_name,
+          username: user.username,
+          email: user.email,
+          role: user.role
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving user profile',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Update password
+ */
+exports.updatePassword = async (req, res) => {
+  try {
+    const { id } = req.user;
     const { currentPassword, newPassword } = req.body;
     
     // Validate input
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
     }
     
-    const user = await User.findByPk(userId);
+    // Find user
+    const user = await User.findByPk(id);
+    
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
-
-    // Verify current password
-    const isMatch = await comparePassword(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
+    
+    // Validate current password
+    const isPasswordValid = await user.validatePassword(currentPassword);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
     }
-
+    
     // Update password
-    user.password = newPassword;
-    await user.save();
-
-    res.status(200).json({ message: 'Password changed successfully' });
+    await user.update({ password: newPassword });
+    
+    // Send response
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
   } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Server error while changing password' });
+    console.error('Update password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating password',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
-};
-
-module.exports = {
-  login,
-  getProfile,
-  updateProfile,
-  changePassword
 };

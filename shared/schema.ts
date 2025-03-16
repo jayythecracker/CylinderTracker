@@ -15,15 +15,13 @@ export const deliveryTypeEnum = pgEnum('delivery_type', ['Pickup', 'Delivery']);
 // Users table
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
+  full_name: varchar('full_name', { length: 100 }).notNull(),
   username: varchar('username', { length: 50 }).notNull().unique(),
   password: varchar('password', { length: 100 }).notNull(),
   role: userRoleEnum('role').notNull().default('viewer'),
   email: varchar('email', { length: 100 }),
-  phone: varchar('phone', { length: 20 }),
-  active: boolean('active').notNull().default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
 });
 
 // User relations
@@ -31,6 +29,25 @@ export const usersRelations = relations(users, ({ many }) => ({
   inspections: many(inspections),
   fillingOperations: many(fillingOperations),
   sales: many(sales),
+}));
+
+// Factories table
+export const factories = pgTable('factories', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  location: varchar('location', { length: 200 }).notNull(),
+  contact_person: varchar('contact_person', { length: 100 }),
+  contact_phone: varchar('contact_phone', { length: 20 }),
+  email: varchar('email', { length: 100 }),
+  active: boolean('active').notNull().default(true),
+  description: text('description'),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+// Factory relations
+export const factoriesRelations = relations(factories, ({ many }) => ({
+  cylinders: many(cylinders),
 }));
 
 // Customers table
@@ -75,6 +92,7 @@ export const cylinders = pgTable('cylinders', {
   valveType: varchar('valve_type', { length: 50 }),
   currentLocation: varchar('current_location', { length: 100 }).default('Factory'),
   currentCustomerId: integer('current_customer_id').references(() => customers.id),
+  factoryId: integer('factory_id').references(() => factories.id),
   qrCode: varchar('qr_code', { length: 200 }),
   notes: text('notes'),
   active: boolean('active').notNull().default(true),
@@ -87,6 +105,10 @@ export const cylindersRelations = relations(cylinders, ({ one, many }) => ({
   currentCustomer: one(customers, {
     fields: [cylinders.currentCustomerId],
     references: [customers.id],
+  }),
+  factory: one(factories, {
+    fields: [cylinders.factoryId],
+    references: [factories.id],
   }),
   inspections: many(inspections),
   fillingOperations: many(fillingOperations),
@@ -292,6 +314,9 @@ export const deliveriesRelations = relations(deliveries, ({ one }) => ({
 // Export types
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
+
+export type Factory = typeof factories.$inferSelect;
+export type InsertFactory = typeof factories.$inferInsert;
 
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;

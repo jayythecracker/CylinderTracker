@@ -1,178 +1,236 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/customer.dart';
-import '../services/api_service.dart';
-import '../config/app_config.dart';
+import 'package:cylinder_management/models/customer.dart';
+import 'package:cylinder_management/models/sale.dart';
+import 'package:cylinder_management/services/api_service.dart';
 
-// Provider for customers list state
-final customersProvider = AsyncNotifierProvider<CustomersNotifier, List<Customer>>(() {
-  return CustomersNotifier();
+// Provider for customers list
+final customersProvider = StateNotifierProvider<CustomersNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return CustomersNotifier(ApiService());
 });
 
-// Provider for selected customer
-final selectedCustomerProvider = StateProvider<Customer?>((ref) => null);
-
-// Provider for customer filter parameters
-final customerFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'type': null,
-    'paymentType': null,
-    'search': null,
-    'page': 1,
-    'limit': AppConfig.defaultPageSize,
-  };
+// Provider for customer details
+final customerDetailsProvider = StateNotifierProvider.family<CustomerDetailsNotifier, AsyncValue<Customer?>, int>((ref, id) {
+  return CustomerDetailsNotifier(ApiService(), id);
 });
 
-// Provider for customers pagination info
-final customerPaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'totalCount': 0,
-    'currentPage': 1,
-    'totalPages': 1,
-  };
+// Provider for customer sales
+final customerSalesProvider = StateNotifierProvider.family<CustomerSalesNotifier, AsyncValue<Map<String, dynamic>>, int>((ref, id) {
+  return CustomerSalesNotifier(ApiService(), id);
 });
 
-class CustomersNotifier extends AsyncNotifier<List<Customer>> {
-  late ApiService _apiService;
+// Notifier for customers list
+class CustomersNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
   
-  @override
-  Future<List<Customer>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
+  CustomersNotifier(this._apiService) : super(const AsyncValue.loading()) {
+    fetchCustomers();
   }
   
-  // Get all customers with optional filters
-  Future<void> getCustomers({Map<String, dynamic>? filters}) async {
-    state = const AsyncValue.loading();
-    
+  // Fetch all customers with pagination
+  Future<void> fetchCustomers({Map<String, dynamic>? filters, int page = 1, int limit = 20}) async {
     try {
-      final currentFilters = ref.read(customerFilterProvider);
-      final queryParams = filters ?? currentFilters;
+      state = const AsyncValue.loading();
       
-      // Update filter provider if new filters are provided
-      if (filters != null) {
-        ref.read(customerFilterProvider.notifier).state = {
-          ...currentFilters,
-          ...filters,
-        };
-      }
+      final queryParams = {
+        'page': page,
+        'limit': limit,
+        ...?filters,
+      };
       
-      final response = await _apiService.get(
-        AppConfig.customersEndpoint,
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/customers',
+        (data) => {
+          'customers': (data['customers'] as List).map((item) => Customer.fromJson(item)).toList(),
+          'pagination': data['pagination'],
+        },
         queryParams: queryParams,
       );
       
-      final List<Customer> customers = (response['customers'] as List)
-          .map((customerData) => Customer.fromJson(customerData))
-          .toList();
-      
-      // Update pagination info
-      ref.read(customerPaginationProvider.notifier).state = {
-        'totalCount': response['totalCount'],
-        'currentPage': response['currentPage'],
-        'totalPages': response['totalPages'],
-      };
-      
-      state = AsyncValue.data(customers);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch customers',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
   
-  // Get customer by ID
-  Future<Customer> getCustomerById(int id) async {
+  // Create new customer
+  Future<Customer?> createCustomer(Map<String, dynamic> customerData) async {
     try {
-      final response = await _apiService.get('${AppConfig.customersEndpoint}/$id');
-      return Customer.fromJson(response['customer']);
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/customers',
+        customerData,
+        (data) => {'customer': Customer.fromJson(data['customer'])},
+      );
+      
+      if (response.success && response.data != null) {
+        // Refresh customers list
+        fetchCustomers();
+        return response.data!['customer'];
+      } else {
+        throw Exception(response.message ?? 'Failed to create customer');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Create customer
-  Future<Customer> createCustomer(Customer customer) async {
+  // Update existing customer
+  Future<Customer?> updateCustomer(int id, Map<String, dynamic> customerData) async {
     try {
-      final response = await _apiService.post(
-        AppConfig.customersEndpoint,
-        data: customer.toCreateJson(),
+      final response = await _apiService.put<Map<String, dynamic>>(
+        '/customers/$id',
+        customerData,
+        (data) => {'customer': Customer.fromJson(data['customer'])},
       );
       
-      final newCustomer = Customer.fromJson(response['customer']);
-      
-      // Update state with new customer
-      state = AsyncValue.data([...state.value ?? [], newCustomer]);
-      
-      return newCustomer;
+      if (response.success && response.data != null) {
+        // Refresh customers list
+        fetchCustomers();
+        return response.data!['customer'];
+      } else {
+        throw Exception(response.message ?? 'Failed to update customer');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Update customer
-  Future<Customer> updateCustomer(int id, Customer updatedCustomer) async {
+  // Update customer balance
+  Future<Customer?> updateCustomerBalance(int id, double amount, String operation, String? notes) async {
     try {
-      final response = await _apiService.put(
-        '${AppConfig.customersEndpoint}/$id',
-        data: {
-          'name': updatedCustomer.name,
-          'type': updatedCustomer.type,
-          'address': updatedCustomer.address,
-          'contactPerson': updatedCustomer.contactPerson,
-          'contactNumber': updatedCustomer.contactNumber,
-          'email': updatedCustomer.email,
-          'paymentType': updatedCustomer.paymentType,
-          'priceGroup': updatedCustomer.priceGroup,
-          'creditLimit': updatedCustomer.creditLimit,
-        },
-      );
-      
-      final customer = Customer.fromJson(response['customer']);
-      
-      // Update state with updated customer
-      state = AsyncValue.data(
-        state.value?.map((c) => c.id == id ? customer : c).toList() ?? [],
-      );
-      
-      return customer;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Update customer credit
-  Future<Customer> updateCustomerCredit(int id, double amount, String operation) async {
-    try {
-      final response = await _apiService.put(
-        '${AppConfig.customersEndpoint}/$id/credit',
-        data: {
+      final response = await _apiService.patch<Map<String, dynamic>>(
+        '/customers/$id/balance',
+        {
           'amount': amount,
-          'operation': operation,
+          'operation': operation, // 'add' or 'subtract'
+          if (notes != null) 'notes': notes,
         },
+        (data) => {'customer': Customer.fromJson(data['customer'])},
       );
       
-      final customer = Customer.fromJson(response['customer']);
-      
-      // Update state with updated customer
-      state = AsyncValue.data(
-        state.value?.map((c) => c.id == id ? customer : c).toList() ?? [],
-      );
-      
-      return customer;
+      if (response.success && response.data != null) {
+        // Refresh customers list
+        fetchCustomers();
+        return response.data!['customer'];
+      } else {
+        throw Exception(response.message ?? 'Failed to update customer balance');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
   // Delete customer
-  Future<void> deleteCustomer(int id) async {
+  Future<bool> deleteCustomer(int id) async {
     try {
-      await _apiService.delete('${AppConfig.customersEndpoint}/$id');
-      
-      // Update state by removing deleted customer
-      state = AsyncValue.data(
-        state.value?.where((customer) => customer.id != id).toList() ?? [],
+      final response = await _apiService.delete<Map<String, dynamic>>(
+        '/customers/$id',
+        (data) => data,
       );
+      
+      if (response.success) {
+        // Refresh customers list
+        fetchCustomers();
+        return true;
+      } else {
+        throw Exception(response.message ?? 'Failed to delete customer');
+      }
     } catch (e) {
       rethrow;
+    }
+  }
+}
+
+// Notifier for customer details
+class CustomerDetailsNotifier extends StateNotifier<AsyncValue<Customer?>> {
+  final ApiService _apiService;
+  final int customerId;
+  
+  CustomerDetailsNotifier(this._apiService, this.customerId) : super(const AsyncValue.loading()) {
+    if (customerId > 0) {
+      fetchCustomerDetails();
+    } else {
+      state = const AsyncValue.data(null);
+    }
+  }
+  
+  // Fetch customer details
+  Future<void> fetchCustomerDetails() async {
+    try {
+      state = const AsyncValue.loading();
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/customers/$customerId',
+        (data) => {'customer': Customer.fromJson(data['customer'])},
+      );
+      
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!['customer']);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch customer details',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+}
+
+// Notifier for customer sales
+class CustomerSalesNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
+  final int customerId;
+  
+  CustomerSalesNotifier(this._apiService, this.customerId) : super(const AsyncValue.loading()) {
+    if (customerId > 0) {
+      fetchCustomerSales();
+    } else {
+      state = AsyncValue.data({
+        'customer': null,
+        'sales': <Sale>[],
+        'pagination': {'total': 0, 'page': 1, 'limit': 20, 'totalPages': 0},
+      });
+    }
+  }
+  
+  // Fetch sales for a specific customer
+  Future<void> fetchCustomerSales({int page = 1, int limit = 20}) async {
+    try {
+      state = const AsyncValue.loading();
+      
+      final queryParams = {
+        'page': page,
+        'limit': limit,
+      };
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/customers/$customerId/sales',
+        (data) => {
+          'customer': Customer.fromJson(data['customer']),
+          'sales': (data['sales'] as List).map((item) => Sale.fromJson(item)).toList(),
+          'pagination': data['pagination'],
+        },
+        queryParams: queryParams,
+      );
+      
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch customer sales',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
 }

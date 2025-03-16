@@ -1,498 +1,724 @@
-const { Sale, SaleItem } = require('../models/sale');
-const Customer = require('../models/customer');
-const Cylinder = require('../models/cylinder');
-const Truck = require('../models/truck');
-const User = require('../models/user');
-const { sequelize } = require('../config/db');
+const { Sale, SaleCylinder, Cylinder, Customer, User, Truck } = require('../models');
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 
-// Generate a unique invoice number
-const generateInvoiceNumber = () => {
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `INV-${dateStr}-${randomNum}`;
-};
-
-// Get all sales with pagination and filters
-const getAllSales = async (req, res) => {
+/**
+ * Get all sales with pagination and filtering
+ */
+exports.getAllSales = async (req, res) => {
   try {
+    // Get query parameters for filtering and pagination
     const { 
-      status,
-      customerId,
-      sellerId,
-      deliveryType,
+      customerId, 
+      sellerId, 
+      deliveryMethod,
+      deliveryStatus,
       paymentStatus,
-      startDate,
+      startDate, 
       endDate,
       page = 1, 
       limit = 20 
     } = req.query;
     
-    // Build filter conditions
-    const whereConditions = {};
+    // Build filter object
+    const filter = {};
     
-    if (status) whereConditions.status = status;
-    if (customerId) whereConditions.customerId = customerId;
-    if (sellerId) whereConditions.sellerId = sellerId;
-    if (deliveryType) whereConditions.deliveryType = deliveryType;
-    if (paymentStatus) whereConditions.paymentStatus = paymentStatus;
-    
-    if (startDate && endDate) {
-      whereConditions.saleDate = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
-      };
-    } else if (startDate) {
-      whereConditions.saleDate = {
-        [Op.gte]: new Date(startDate)
-      };
-    } else if (endDate) {
-      whereConditions.saleDate = {
-        [Op.lte]: new Date(endDate)
-      };
+    if (customerId) {
+      filter.customerId = customerId;
     }
     
-    // Pagination
+    if (sellerId) {
+      filter.sellerId = sellerId;
+    }
+    
+    if (deliveryMethod) {
+      filter.deliveryMethod = deliveryMethod;
+    }
+    
+    if (deliveryStatus) {
+      filter.deliveryStatus = deliveryStatus;
+    }
+    
+    if (paymentStatus) {
+      filter.paymentStatus = paymentStatus;
+    }
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.saleDate = {};
+      
+      if (startDate) {
+        filter.saleDate[Op.gte] = new Date(startDate);
+      }
+      
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        filter.saleDate[Op.lte] = endDateTime;
+      }
+    }
+    
+    // Calculate pagination
     const offset = (page - 1) * limit;
     
+    // Find sales with pagination
     const { count, rows: sales } = await Sale.findAndCountAll({
-      where: whereConditions,
+      where: filter,
       include: [
-        { model: Customer },
-        { model: User, as: 'Seller', attributes: ['id', 'name'] },
-        { model: Truck }
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'type'] },
+        { model: User, as: 'seller', attributes: ['id', 'name'] },
+        { model: Truck, as: 'truck', attributes: ['id', 'licenseNumber'], required: false }
       ],
       order: [['saleDate', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
     
-    res.status(200).json({
-      sales,
-      totalCount: count,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+    // Calculate total pages
+    const totalPages = Math.ceil(count / limit);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        sales,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
     });
   } catch (error) {
     console.error('Get all sales error:', error);
-    res.status(500).json({ message: 'Server error while fetching sales' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving sales',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Get sale by ID
-const getSaleById = async (req, res) => {
+/**
+ * Get sale by ID
+ */
+exports.getSaleById = async (req, res) => {
   try {
-    const saleId = req.params.id;
+    const { id } = req.params;
     
-    const sale = await Sale.findOne({
-      where: { id: saleId },
+    // Find sale
+    const sale = await Sale.findByPk(id, {
       include: [
-        { model: Customer },
-        { model: User, as: 'Seller', attributes: ['id', 'name'] },
-        { model: Truck },
+        { model: Customer, as: 'customer' },
+        { model: User, as: 'seller', attributes: ['id', 'name'] },
+        { model: Truck, as: 'truck', required: false },
         { 
-          model: SaleItem,
-          include: [{ model: Cylinder }]
+          model: Cylinder, 
+          as: 'cylinders',
+          through: {
+            attributes: ['id', 'quantity']
+          }
         }
       ]
     });
     
     if (!sale) {
-      return res.status(404).json({ message: 'Sale not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Sale not found'
+      });
     }
     
-    res.status(200).json({ sale });
+    // Send response
+    res.json({
+      success: true,
+      data: { sale }
+    });
   } catch (error) {
     console.error('Get sale by ID error:', error);
-    res.status(500).json({ message: 'Server error while fetching sale' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving sale',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Create new sale
-const createSale = async (req, res) => {
+/**
+ * Create new sale
+ */
+exports.createSale = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
     const { 
-      customerId,
-      deliveryType,
-      truckId,
-      items,
+      customerId, 
+      deliveryMethod, 
+      truckId, 
+      cylinders, 
       totalAmount,
       paidAmount,
-      paymentMethod,
-      notes,
-      deliveryAddress
+      notes 
     } = req.body;
     
-    const sellerId = req.user.id;
-    
-    // Validate required fields
-    if (!customerId || !deliveryType || !items || !items.length || totalAmount === undefined) {
+    // Validate input
+    if (!customerId || !deliveryMethod || !cylinders || !Array.isArray(cylinders) || cylinders.length === 0) {
       await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'Customer ID, delivery type, items, and total amount are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Customer ID, delivery method, and at least one cylinder are required'
+      });
+    }
+    
+    // Check if truck is required for delivery and provided
+    if (deliveryMethod === 'Delivery' && !truckId) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Truck ID is required for delivery method "Delivery"'
       });
     }
     
     // Check if customer exists
-    const customer = await Customer.findOne({
-      where: { id: customerId, isActive: true },
-      transaction
-    });
+    const customer = await Customer.findByPk(customerId);
     
     if (!customer) {
       await transaction.rollback();
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
     }
     
-    // Check if truck exists and is available if delivery type is Truck Delivery
-    if (deliveryType === 'Truck Delivery') {
-      if (!truckId) {
-        await transaction.rollback();
-        return res.status(400).json({ message: 'Truck ID is required for truck delivery' });
-      }
-      
-      const truck = await Truck.findOne({
-        where: { id: truckId, isActive: true, status: 'Available' },
-        transaction
-      });
+    // If delivery by truck, check if truck exists and is available
+    if (deliveryMethod === 'Delivery') {
+      const truck = await Truck.findByPk(truckId);
       
       if (!truck) {
         await transaction.rollback();
-        return res.status(404).json({ message: 'Truck not found or not available' });
+        return res.status(404).json({
+          success: false,
+          message: 'Truck not found'
+        });
       }
       
-      // Update truck status
-      truck.status = 'On Delivery';
-      await truck.save({ transaction });
+      if (truck.status !== 'Available') {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Truck is not available (current status: ${truck.status})`
+        });
+      }
     }
     
-    // Calculate payment status
-    let paymentStatus = 'Unpaid';
-    if (paidAmount >= totalAmount) {
-      paymentStatus = 'Paid';
-    } else if (paidAmount > 0) {
-      paymentStatus = 'Partial';
+    // Validate cylinders array
+    for (const item of cylinders) {
+      if (!item.cylinderId || !item.quantity || item.quantity <= 0) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: 'Each cylinder item must have cylinderId and positive quantity'
+        });
+      }
+      
+      // Check if cylinder exists and is full
+      const cylinder = await Cylinder.findByPk(item.cylinderId);
+      
+      if (!cylinder) {
+        await transaction.rollback();
+        return res.status(404).json({
+          success: false,
+          message: `Cylinder with ID ${item.cylinderId} not found`
+        });
+      }
+      
+      if (cylinder.status !== 'Full') {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Cylinder with ID ${item.cylinderId} is not full (current status: ${cylinder.status})`
+        });
+      }
     }
     
-    // Generate invoice number
-    const invoiceNumber = generateInvoiceNumber();
+    // Determine payment status
+    let paymentStatus = 'Pending';
+    if (paidAmount && paidAmount > 0) {
+      if (paidAmount >= totalAmount) {
+        paymentStatus = 'Paid';
+      } else {
+        paymentStatus = 'Partial';
+      }
+    }
     
     // Create new sale
-    const newSale = await Sale.create({
-      invoiceNumber,
+    const sale = await Sale.create({
       customerId,
-      sellerId,
-      deliveryType,
-      truckId: deliveryType === 'Truck Delivery' ? truckId : null,
-      status: 'Pending',
-      totalAmount,
+      sellerId: req.user.id, // Current authenticated user
+      deliveryMethod,
+      truckId: deliveryMethod === 'Delivery' ? truckId : null,
+      totalAmount: totalAmount || 0,
       paidAmount: paidAmount || 0,
       paymentStatus,
-      paymentMethod: paymentMethod || 'Cash',
-      notes,
-      deliveryAddress: deliveryAddress || customer.address
+      deliveryStatus: 'Pending',
+      notes: notes || null
     }, { transaction });
     
-    // Check if all cylinders exist and are available
-    const cylinderIds = items.map(item => item.cylinderId);
-    const cylinders = await Cylinder.findAll({
-      where: { 
-        id: { [Op.in]: cylinderIds },
-        isActive: true,
-        status: 'Full'
-      },
-      transaction
-    });
-    
-    if (cylinders.length !== cylinderIds.length) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'One or more cylinders are not available for sale' 
-      });
+    // Associate cylinders with quantities
+    for (const item of cylinders) {
+      await SaleCylinder.create({
+        saleId: sale.id,
+        cylinderId: item.cylinderId,
+        quantity: item.quantity
+      }, { transaction });
+      
+      // Update cylinder status to InTransit
+      await Cylinder.update(
+        { status: 'InTransit' },
+        { 
+          where: { id: item.cylinderId },
+          transaction
+        }
+      );
     }
     
-    // Create sale items
-    const saleItems = await Promise.all(
-      items.map(item => 
-        SaleItem.create({
-          saleId: newSale.id,
-          cylinderId: item.cylinderId,
-          price: item.price
-        }, { transaction })
-      )
-    );
+    // If delivery by truck, update truck status
+    if (deliveryMethod === 'Delivery') {
+      await Truck.update(
+        { status: 'InTransit' },
+        { 
+          where: { id: truckId },
+          transaction
+        }
+      );
+    }
     
-    // Update cylinders status and current customer
-    await Promise.all(
-      cylinders.map(cylinder => {
-        cylinder.status = 'In Delivery';
-        cylinder.currentCustomerId = customerId;
-        return cylinder.save({ transaction });
-      })
-    );
-    
-    // Update customer credit if payment method is Credit
-    if (paymentMethod === 'Credit') {
-      const unpaidAmount = totalAmount - (paidAmount || 0);
-      if (unpaidAmount > 0) {
-        customer.currentCredit += unpaidAmount;
-        await customer.save({ transaction });
-      }
+    // If credit customer, update balance
+    if (customer.paymentType === 'Credit' && paymentStatus !== 'Paid') {
+      const remainingAmount = totalAmount - (paidAmount || 0);
+      await customer.update(
+        { balance: customer.balance + remainingAmount },
+        { transaction }
+      );
     }
     
     await transaction.commit();
     
+    // Get detailed sale info
+    const detailedSale = await Sale.findByPk(sale.id, {
+      include: [
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'type'] },
+        { model: User, as: 'seller', attributes: ['id', 'name'] },
+        { model: Truck, as: 'truck', required: false, attributes: ['id', 'licenseNumber'] },
+        { 
+          model: Cylinder, 
+          as: 'cylinders',
+          through: {
+            attributes: ['id', 'quantity']
+          }
+        }
+      ]
+    });
+    
+    // Send response
     res.status(201).json({
-      message: 'Sale created successfully',
-      sale: newSale,
-      items: saleItems
+      success: true,
+      data: { sale: detailedSale }
     });
   } catch (error) {
     await transaction.rollback();
     console.error('Create sale error:', error);
-    res.status(500).json({ message: 'Server error while creating sale' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating sale',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Update sale status
-const updateSaleStatus = async (req, res) => {
+/**
+ * Update sale delivery status
+ */
+exports.updateDeliveryStatus = async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const saleId = req.params.id;
-    const { status, customerSignature, deliveryDate } = req.body;
+    const { id } = req.params;
+    const { 
+      deliveryStatus, 
+      deliveryDate,
+      signatureImage,
+      notes 
+    } = req.body;
     
     // Validate input
-    if (!status) {
+    if (!deliveryStatus) {
       await transaction.rollback();
-      return res.status(400).json({ message: 'Status is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery status is required'
+      });
     }
     
-    // Check if sale exists
-    const sale = await Sale.findOne({
-      where: { id: saleId },
+    // Check if status is valid
+    if (!['Pending', 'InTransit', 'Delivered', 'Cancelled'].includes(deliveryStatus)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid delivery status'
+      });
+    }
+    
+    // Find sale
+    const sale = await Sale.findByPk(id, {
       include: [
-        { model: SaleItem, include: [{ model: Cylinder }] },
-        { model: Truck }
-      ],
-      transaction
-    });
-    
-    if (!sale) {
-      await transaction.rollback();
-      return res.status(404).json({ message: 'Sale not found' });
-    }
-    
-    // Update sale
-    sale.status = status;
-    if (customerSignature) sale.customerSignature = customerSignature;
-    if (deliveryDate) sale.deliveryDate = deliveryDate;
-    
-    // Update related records based on status change
-    if (status === 'Delivered' || status === 'Completed') {
-      // Update cylinders status
-      for (const item of sale.SaleItems) {
-        const cylinder = item.Cylinder;
-        cylinder.status = 'Full'; // Stays full but now at customer
-        await cylinder.save({ transaction });
-      }
-      
-      // Update truck status if delivery was by truck
-      if (sale.deliveryType === 'Truck Delivery' && sale.Truck) {
-        const truck = sale.Truck;
-        truck.status = 'Available';
-        await truck.save({ transaction });
-      }
-    } else if (status === 'Cancelled') {
-      // Return cylinders to inventory
-      for (const item of sale.SaleItems) {
-        const cylinder = item.Cylinder;
-        cylinder.status = 'Full';
-        cylinder.currentCustomerId = null;
-        await cylinder.save({ transaction });
-      }
-      
-      // Make truck available again if delivery was by truck
-      if (sale.deliveryType === 'Truck Delivery' && sale.Truck) {
-        const truck = sale.Truck;
-        truck.status = 'Available';
-        await truck.save({ transaction });
-      }
-      
-      // Reduce customer credit if payment was by credit
-      if (sale.paymentMethod === 'Credit' && sale.paymentStatus !== 'Paid') {
-        const customer = await Customer.findByPk(sale.customerId, { transaction });
-        if (customer) {
-          const unpaidAmount = sale.totalAmount - sale.paidAmount;
-          if (unpaidAmount > 0 && customer.currentCredit >= unpaidAmount) {
-            customer.currentCredit -= unpaidAmount;
-            await customer.save({ transaction });
+        { 
+          model: Cylinder, 
+          as: 'cylinders',
+          through: {
+            attributes: ['id', 'quantity']
           }
         }
-      }
-    }
-    
-    await sale.save({ transaction });
-    
-    await transaction.commit();
-    
-    res.status(200).json({
-      message: 'Sale status updated successfully',
-      sale
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Update sale status error:', error);
-    res.status(500).json({ message: 'Server error while updating sale status' });
-  }
-};
-
-// Record cylinder return
-const recordCylinderReturn = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
-  try {
-    const saleItemId = req.params.itemId;
-    const { returnDate } = req.body;
-    
-    if (!returnDate) {
-      await transaction.rollback();
-      return res.status(400).json({ message: 'Return date is required' });
-    }
-    
-    // Check if sale item exists
-    const saleItem = await SaleItem.findOne({
-      where: { id: saleItemId },
-      include: [
-        { model: Cylinder },
-        { model: Sale }
-      ],
-      transaction
-    });
-    
-    if (!saleItem) {
-      await transaction.rollback();
-      return res.status(404).json({ message: 'Sale item not found' });
-    }
-    
-    // Check if cylinder is already returned
-    if (saleItem.returnedEmpty) {
-      await transaction.rollback();
-      return res.status(400).json({ message: 'Cylinder already returned' });
-    }
-    
-    // Update sale item
-    saleItem.returnedEmpty = true;
-    saleItem.returnDate = new Date(returnDate);
-    await saleItem.save({ transaction });
-    
-    // Update cylinder status
-    const cylinder = saleItem.Cylinder;
-    cylinder.status = 'Empty';
-    cylinder.currentCustomerId = null;
-    await cylinder.save({ transaction });
-    
-    await transaction.commit();
-    
-    res.status(200).json({
-      message: 'Cylinder return recorded successfully',
-      saleItem
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Record cylinder return error:', error);
-    res.status(500).json({ message: 'Server error while recording cylinder return' });
-  }
-};
-
-// Update sale payment
-const updateSalePayment = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
-  try {
-    const saleId = req.params.id;
-    const { paidAmount, paymentMethod, notes } = req.body;
-    
-    // Validate input
-    if (paidAmount === undefined) {
-      await transaction.rollback();
-      return res.status(400).json({ message: 'Paid amount is required' });
-    }
-    
-    // Check if sale exists
-    const sale = await Sale.findOne({
-      where: { id: saleId },
-      transaction
+      ]
     });
     
     if (!sale) {
       await transaction.rollback();
-      return res.status(404).json({ message: 'Sale not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Sale not found'
+      });
     }
     
-    // Check if sale is already paid in full
-    if (sale.paymentStatus === 'Paid') {
+    // If delivered, signature is required
+    if (deliveryStatus === 'Delivered' && !signatureImage) {
       await transaction.rollback();
-      return res.status(400).json({ message: 'Sale is already paid in full' });
+      return res.status(400).json({
+        success: false,
+        message: 'Signature image is required for delivered status'
+      });
     }
     
-    // Update payment amount
-    const newPaidAmount = sale.paidAmount + parseFloat(paidAmount);
-    sale.paidAmount = newPaidAmount;
+    // Update sale delivery status
+    await sale.update({
+      deliveryStatus,
+      deliveryDate: deliveryStatus === 'Delivered' ? (deliveryDate || new Date()) : sale.deliveryDate,
+      signatureImage: signatureImage || sale.signatureImage,
+      notes: notes !== undefined ? (sale.notes ? `${sale.notes}\n${notes}` : notes) : sale.notes
+    }, { transaction });
     
-    // Update payment status
-    if (newPaidAmount >= sale.totalAmount) {
-      sale.paymentStatus = 'Paid';
-    } else if (newPaidAmount > 0) {
-      sale.paymentStatus = 'Partial';
-    }
-    
-    // Update payment method if provided
-    if (paymentMethod) sale.paymentMethod = paymentMethod;
-    
-    // Update notes if provided
-    if (notes) {
-      sale.notes = sale.notes 
-        ? `${sale.notes}\n${new Date().toISOString()}: Payment update - ${notes}` 
-        : `${new Date().toISOString()}: Payment update - ${notes}`;
-    }
-    
-    // Update customer credit if this payment reduces credit
-    if (sale.paymentMethod === 'Credit') {
-      const customer = await Customer.findByPk(sale.customerId, { transaction });
-      if (customer) {
-        const creditReduction = Math.min(
-          parseFloat(paidAmount),
-          customer.currentCredit
+    // Handle cylinder status updates based on delivery status
+    if (deliveryStatus === 'Delivered') {
+      // Update cylinders to Empty status
+      for (const cylinder of sale.cylinders) {
+        await Cylinder.update(
+          { status: 'Empty' },
+          { 
+            where: { id: cylinder.id },
+            transaction
+          }
         );
-        if (creditReduction > 0) {
-          customer.currentCredit -= creditReduction;
-          await customer.save({ transaction });
-        }
+      }
+      
+      // If truck involved, update truck status to Available
+      if (sale.truckId) {
+        await Truck.update(
+          { status: 'Available' },
+          { 
+            where: { id: sale.truckId },
+            transaction
+          }
+        );
+      }
+    } else if (deliveryStatus === 'Cancelled') {
+      // Update cylinders back to Full status
+      for (const cylinder of sale.cylinders) {
+        await Cylinder.update(
+          { status: 'Full' },
+          { 
+            where: { id: cylinder.id },
+            transaction
+          }
+        );
+      }
+      
+      // If truck involved, update truck status to Available
+      if (sale.truckId) {
+        await Truck.update(
+          { status: 'Available' },
+          { 
+            where: { id: sale.truckId },
+            transaction
+          }
+        );
+      }
+      
+      // If credit customer, update balance by removing charge
+      const customer = await Customer.findByPk(sale.customerId);
+      if (customer.paymentType === 'Credit' && sale.paymentStatus !== 'Paid') {
+        const remainingAmount = sale.totalAmount - sale.paidAmount;
+        await customer.update(
+          { balance: customer.balance - remainingAmount },
+          { transaction }
+        );
       }
     }
     
-    await sale.save({ transaction });
-    
     await transaction.commit();
     
-    res.status(200).json({
-      message: 'Sale payment updated successfully',
-      sale
+    // Get updated sale info
+    const updatedSale = await Sale.findByPk(id, {
+      include: [
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'type'] },
+        { model: User, as: 'seller', attributes: ['id', 'name'] },
+        { model: Truck, as: 'truck', required: false }
+      ]
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { sale: updatedSale }
     });
   } catch (error) {
     await transaction.rollback();
-    console.error('Update sale payment error:', error);
-    res.status(500).json({ message: 'Server error while updating sale payment' });
+    console.error('Update delivery status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating delivery status',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-module.exports = {
-  getAllSales,
-  getSaleById,
-  createSale,
-  updateSaleStatus,
-  recordCylinderReturn,
-  updateSalePayment
+/**
+ * Update sale payment status
+ */
+exports.updatePaymentStatus = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { 
+      paymentStatus, 
+      paidAmount,
+      notes 
+    } = req.body;
+    
+    // Validate input
+    if (!paymentStatus) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Payment status is required'
+      });
+    }
+    
+    // Check if status is valid
+    if (!['Paid', 'Pending', 'Partial'].includes(paymentStatus)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment status'
+      });
+    }
+    
+    // Find sale
+    const sale = await Sale.findByPk(id, {
+      include: [
+        { model: Customer, as: 'customer' }
+      ]
+    });
+    
+    if (!sale) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: 'Sale not found'
+      });
+    }
+    
+    // Calculate new paid amount
+    let newPaidAmount = sale.paidAmount;
+    if (paidAmount !== undefined) {
+      newPaidAmount = paidAmount;
+    } else if (paymentStatus === 'Paid') {
+      newPaidAmount = sale.totalAmount;
+    }
+    
+    // Validate new paid amount based on payment status
+    if (paymentStatus === 'Paid' && newPaidAmount < sale.totalAmount) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Paid amount must equal total amount for status "Paid"'
+      });
+    }
+    
+    if (paymentStatus === 'Partial' && (newPaidAmount <= 0 || newPaidAmount >= sale.totalAmount)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Paid amount must be greater than 0 and less than total amount for status "Partial"'
+      });
+    }
+    
+    // Calculate balance adjustment for credit customers
+    let balanceAdjustment = 0;
+    if (sale.customer.paymentType === 'Credit') {
+      const previousUnpaid = sale.totalAmount - sale.paidAmount;
+      const newUnpaid = sale.totalAmount - newPaidAmount;
+      balanceAdjustment = newUnpaid - previousUnpaid;
+    }
+    
+    // Update sale payment status
+    await sale.update({
+      paymentStatus,
+      paidAmount: newPaidAmount,
+      notes: notes !== undefined ? (sale.notes ? `${sale.notes}\n${notes}` : notes) : sale.notes
+    }, { transaction });
+    
+    // Update customer balance if needed
+    if (sale.customer.paymentType === 'Credit' && balanceAdjustment !== 0) {
+      await sale.customer.update(
+        { balance: sale.customer.balance + balanceAdjustment },
+        { transaction }
+      );
+    }
+    
+    await transaction.commit();
+    
+    // Get updated sale info
+    const updatedSale = await Sale.findByPk(id, {
+      include: [
+        { model: Customer, as: 'customer' },
+        { model: User, as: 'seller', attributes: ['id', 'name'] }
+      ]
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        sale: updatedSale,
+        balanceAdjustment: balanceAdjustment !== 0 ? {
+          customer: {
+            id: sale.customer.id,
+            name: sale.customer.name,
+            previousBalance: sale.customer.balance,
+            newBalance: sale.customer.balance + balanceAdjustment
+          },
+          adjustment: balanceAdjustment
+        } : null
+      }
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Update payment status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating payment status',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Get sales statistics
+ */
+exports.getSalesStats = async (req, res) => {
+  try {
+    const { period = 'daily', startDate, endDate } = req.query;
+    
+    let timeGroup, timeRange;
+    const now = new Date();
+    
+    // Set time grouping based on period
+    if (period === 'weekly') {
+      timeGroup = 'day';
+      // Last 7 days (if dates not provided)
+      timeRange = startDate ? new Date(startDate) : new Date(now.setDate(now.getDate() - 7));
+    } else if (period === 'monthly') {
+      timeGroup = 'day';
+      // Last 30 days (if dates not provided)
+      timeRange = startDate ? new Date(startDate) : new Date(now.setDate(now.getDate() - 30));
+    } else if (period === 'yearly') {
+      timeGroup = 'month';
+      // Last 12 months (if dates not provided)
+      timeRange = startDate ? new Date(startDate) : new Date(now.setMonth(now.getMonth() - 12));
+    } else {
+      // daily - default
+      timeGroup = 'hour';
+      // Last 24 hours (if dates not provided)
+      timeRange = startDate ? new Date(startDate) : new Date(now.setHours(now.getHours() - 24));
+    }
+    
+    const endDateTime = endDate ? new Date(endDate) : new Date();
+    if (endDate) {
+      endDateTime.setHours(23, 59, 59, 999);
+    }
+    
+    // Get sales count and amount stats
+    const salesStats = await Sale.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', timeGroup, sequelize.col('saleDate')), 'time'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount'],
+        [sequelize.fn('SUM', sequelize.col('paidAmount')), 'paidAmount']
+      ],
+      where: {
+        saleDate: {
+          [Op.gte]: timeRange,
+          [Op.lte]: endDateTime
+        }
+      },
+      group: [sequelize.fn('date_trunc', timeGroup, sequelize.col('saleDate'))],
+      order: [[sequelize.fn('date_trunc', timeGroup, sequelize.col('saleDate')), 'ASC']]
+    });
+    
+    // Get summary statistics
+    const summary = await Sale.findAll({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'totalSales'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount'],
+        [sequelize.fn('SUM', sequelize.col('paidAmount')), 'paidAmount'],
+        [
+          sequelize.literal('SUM(CASE WHEN "deliveryStatus" = \'Delivered\' THEN 1 ELSE 0 END)'),
+          'deliveredCount'
+        ],
+        [
+          sequelize.literal('SUM(CASE WHEN "paymentStatus" = \'Paid\' THEN 1 ELSE 0 END)'),
+          'paidCount'
+        ]
+      ],
+      where: {
+        saleDate: {
+          [Op.gte]: timeRange,
+          [Op.lte]: endDateTime
+        }
+      }
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        period,
+        timeRange: {
+          start: timeRange,
+          end: endDateTime
+        },
+        stats: salesStats,
+        summary: summary[0]
+      }
+    });
+  } catch (error) {
+    console.error('Get sales stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving sales statistics',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
 };

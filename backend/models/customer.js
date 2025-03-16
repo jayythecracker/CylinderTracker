@@ -1,60 +1,62 @@
-const { sequelize, Sequelize } = require('../config/db');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 const Customer = sequelize.define('Customer', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
   name: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: false
   },
   type: {
-    type: Sequelize.ENUM('Hospital', 'Individual', 'Shop', 'Factory', 'Workshop'),
+    type: DataTypes.ENUM('Hospital', 'Individual', 'Shop', 'Factory', 'Workshop'),
     allowNull: false
   },
   address: {
-    type: Sequelize.TEXT,
+    type: DataTypes.TEXT,
     allowNull: false
   },
-  contactPerson: {
-    type: Sequelize.STRING,
-    allowNull: true
-  },
-  contactNumber: {
-    type: Sequelize.STRING,
+  contact: {
+    type: DataTypes.STRING,
     allowNull: false
   },
   email: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: true,
     validate: {
       isEmail: true
     }
   },
   paymentType: {
-    type: Sequelize.ENUM('Cash', 'Credit'),
+    type: DataTypes.ENUM('Cash', 'Credit'),
     defaultValue: 'Cash'
   },
   priceGroup: {
-    type: Sequelize.STRING,
-    allowNull: true
+    type: DataTypes.STRING,
+    defaultValue: 'Standard',
+    comment: 'Price category for this customer'
   },
   creditLimit: {
-    type: Sequelize.FLOAT,
-    defaultValue: 0
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+    comment: 'Maximum credit amount for credit customers'
   },
-  currentCredit: {
-    type: Sequelize.FLOAT,
-    defaultValue: 0
+  balance: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0.00,
+    comment: 'Current balance for credit customers'
   },
-  isActive: {
-    type: Sequelize.BOOLEAN,
+  active: {
+    type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
-}, {
-  timestamps: true
 });
 
 module.exports = Customer;

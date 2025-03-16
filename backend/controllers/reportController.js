@@ -1,495 +1,672 @@
-const { sequelize } = require('../config/db');
-const { QueryTypes } = require('sequelize');
-const { Sale, SaleItem } = require('../models/sale');
-const { FillingBatch, FillingDetail } = require('../models/filling');
-const Cylinder = require('../models/cylinder');
-const Customer = require('../models/customer');
+const { 
+  Sale, 
+  Filling, 
+  Inspection, 
+  Cylinder, 
+  Customer, 
+  Factory, 
+  User 
+} = require('../models');
+const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 
-// Get daily sales report
-const getDailySalesReport = async (req, res) => {
+/**
+ * Generate dashboard overview report
+ */
+exports.getDashboardOverview = async (req, res) => {
   try {
-    const { date } = req.query;
+    // Get today's date range
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    let reportDate = date ? new Date(date) : new Date();
+    // Get counts
+    const totalCylinders = await Cylinder.count();
+    const totalCustomers = await Customer.count();
+    const totalFactories = await Factory.count();
     
-    // Set to start of day
-    reportDate.setHours(0, 0, 0, 0);
-    
-    // Set to end of day
-    const endDate = new Date(reportDate);
-    endDate.setHours(23, 59, 59, 999);
-    
-    // Get sales for the day
-    const sales = await Sale.findAll({
-      where: {
-        saleDate: {
-          [sequelize.Op.between]: [reportDate, endDate]
-        }
-      },
-      include: [
-        { model: Customer, attributes: ['id', 'name', 'type'] },
-        { 
-          model: SaleItem,
-          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
-        }
-      ]
-    });
-    
-    // Calculate total amounts
-    const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
-    const totalOutstanding = totalAmount - totalPaid;
-    
-    // Count by payment method
-    const cashSales = sales.filter(sale => sale.paymentMethod === 'Cash').length;
-    const creditSales = sales.filter(sale => sale.paymentMethod === 'Credit').length;
-    
-    // Count by customer type
-    const customerTypeCounts = {};
-    sales.forEach(sale => {
-      const type = sale.Customer?.type || 'Unknown';
-      customerTypeCounts[type] = (customerTypeCounts[type] || 0) + 1;
-    });
-    
-    // Count cylinders by size and type
-    const cylinderCounts = {};
-    sales.forEach(sale => {
-      sale.SaleItems.forEach(item => {
-        const cylinder = item.Cylinder;
-        const key = `${cylinder.size}-${cylinder.gasType}`;
-        cylinderCounts[key] = (cylinderCounts[key] || 0) + 1;
-      });
-    });
-    
-    res.status(200).json({
-      date: reportDate.toISOString().split('T')[0],
-      totalSales,
-      totalAmount,
-      totalPaid,
-      totalOutstanding,
-      paymentMethods: {
-        Cash: cashSales,
-        Credit: creditSales
-      },
-      customerTypes: customerTypeCounts,
-      cylinderCounts,
-      sales
-    });
-  } catch (error) {
-    console.error('Daily sales report error:', error);
-    res.status(500).json({ message: 'Server error while generating daily sales report' });
-  }
-};
-
-// Get monthly sales report
-const getMonthlySalesReport = async (req, res) => {
-  try {
-    const { month, year } = req.query;
-    
-    // Default to current month and year if not provided
-    const currentDate = new Date();
-    const reportMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
-    const reportYear = year ? parseInt(year) : currentDate.getFullYear();
-    
-    // Create start and end dates for the month
-    const startDate = new Date(reportYear, reportMonth, 1);
-    const endDate = new Date(reportYear, reportMonth + 1, 0, 23, 59, 59, 999);
-    
-    // Get sales for the month
-    const sales = await Sale.findAll({
-      where: {
-        saleDate: {
-          [sequelize.Op.between]: [startDate, endDate]
-        }
-      },
-      include: [
-        { model: Customer, attributes: ['id', 'name', 'type'] }
-      ]
-    });
-    
-    // Calculate total amounts
-    const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
-    const totalOutstanding = totalAmount - totalPaid;
-    
-    // Group by day
-    const dailySales = {};
-    sales.forEach(sale => {
-      const day = new Date(sale.saleDate).getDate();
-      dailySales[day] = dailySales[day] || { count: 0, amount: 0 };
-      dailySales[day].count += 1;
-      dailySales[day].amount += sale.totalAmount;
-    });
-    
-    // Group by customer type
-    const salesByCustomerType = {};
-    sales.forEach(sale => {
-      const type = sale.Customer?.type || 'Unknown';
-      salesByCustomerType[type] = salesByCustomerType[type] || { count: 0, amount: 0 };
-      salesByCustomerType[type].count += 1;
-      salesByCustomerType[type].amount += sale.totalAmount;
-    });
-    
-    // Group by payment method
-    const salesByPaymentMethod = {
-      Cash: { count: 0, amount: 0 },
-      Credit: { count: 0, amount: 0 }
-    };
-    
-    sales.forEach(sale => {
-      const method = sale.paymentMethod;
-      salesByPaymentMethod[method].count += 1;
-      salesByPaymentMethod[method].amount += sale.totalAmount;
-    });
-    
-    // Group by payment status
-    const salesByPaymentStatus = {
-      Paid: { count: 0, amount: 0 },
-      Partial: { count: 0, amount: 0 },
-      Unpaid: { count: 0, amount: 0 }
-    };
-    
-    sales.forEach(sale => {
-      const status = sale.paymentStatus;
-      salesByPaymentStatus[status].count += 1;
-      salesByPaymentStatus[status].amount += sale.totalAmount;
-    });
-    
-    res.status(200).json({
-      month: reportMonth + 1,
-      year: reportYear,
-      totalSales,
-      totalAmount,
-      totalPaid,
-      totalOutstanding,
-      dailySales,
-      salesByCustomerType,
-      salesByPaymentMethod,
-      salesByPaymentStatus
-    });
-  } catch (error) {
-    console.error('Monthly sales report error:', error);
-    res.status(500).json({ message: 'Server error while generating monthly sales report' });
-  }
-};
-
-// Get cylinder statistics
-const getCylinderStatistics = async (req, res) => {
-  try {
-    // Count cylinders by status
-    const cylindersByStatus = await Cylinder.findAll({
+    // Get cylinder status counts
+    const cylinderStatusCounts = await Cylinder.findAll({
       attributes: [
         'status',
         [sequelize.fn('COUNT', sequelize.col('id')), 'count']
       ],
-      where: { isActive: true },
       group: ['status']
     });
     
-    // Count cylinders by gas type
-    const cylindersByGasType = await Cylinder.findAll({
-      attributes: [
-        'gasType',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      where: { isActive: true },
-      group: ['gasType']
-    });
-    
-    // Count cylinders by size
-    const cylindersBySize = await Cylinder.findAll({
-      attributes: [
-        'size',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
-      ],
-      where: { isActive: true },
-      group: ['size']
-    });
-    
-    // Get cylinders needing inspection (not inspected in last 90 days)
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    
-    const cylindersNeedingInspection = await Cylinder.count({
+    // Get today's activity counts
+    const todaySales = await Sale.count({
       where: {
-        isActive: true,
-        [sequelize.Op.or]: [
-          { lastInspectionDate: null },
-          { lastInspectionDate: { [sequelize.Op.lt]: ninetyDaysAgo } }
-        ]
+        saleDate: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
       }
     });
     
-    // Get cylinders at customer locations
-    const cylindersAtCustomers = await Cylinder.count({
-      where: {
-        isActive: true,
-        currentCustomerId: { [sequelize.Op.not]: null }
-      }
-    });
-    
-    // Get cylinders in error state
-    const cylindersInError = await Cylinder.count({
-      where: {
-        isActive: true,
-        status: 'Error'
-      }
-    });
-    
-    // Get total cylinder count
-    const totalCylinders = await Cylinder.count({
-      where: { isActive: true }
-    });
-    
-    res.status(200).json({
-      totalCylinders,
-      cylindersByStatus: cylindersByStatus.map(item => ({
-        status: item.status,
-        count: parseInt(item.get('count'))
-      })),
-      cylindersByGasType: cylindersByGasType.map(item => ({
-        gasType: item.gasType,
-        count: parseInt(item.get('count'))
-      })),
-      cylindersBySize: cylindersBySize.map(item => ({
-        size: item.size,
-        count: parseInt(item.get('count'))
-      })),
-      cylindersNeedingInspection,
-      cylindersAtCustomers,
-      cylindersInError
-    });
-  } catch (error) {
-    console.error('Cylinder statistics error:', error);
-    res.status(500).json({ message: 'Server error while generating cylinder statistics' });
-  }
-};
-
-// Get filling operations report
-const getFillingReport = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    
-    // Default to last 30 days if dates not provided
-    const today = new Date();
-    const defaultStartDate = new Date();
-    defaultStartDate.setDate(today.getDate() - 30);
-    
-    const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
-    const reportEndDate = endDate ? new Date(endDate) : today;
-    
-    // Set end date to end of day
-    reportEndDate.setHours(23, 59, 59, 999);
-    
-    // Get filling batches for the period
-    const fillingBatches = await FillingBatch.findAll({
+    const todayFillings = await Filling.count({
       where: {
         startTime: {
-          [sequelize.Op.between]: [reportStartDate, reportEndDate]
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
         }
-      },
-      include: [
-        { 
-          model: FillingDetail,
-          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
-        }
-      ]
+      }
     });
     
-    // Calculate success and failure rates
-    let totalCylinders = 0;
-    let successfulFills = 0;
-    let failedFills = 0;
-    
-    fillingBatches.forEach(batch => {
-      batch.FillingDetails.forEach(detail => {
-        totalCylinders++;
-        if (detail.status === 'Success') {
-          successfulFills++;
-        } else if (detail.status === 'Failed') {
-          failedFills++;
-        }
-      });
-    });
-    
-    const successRate = totalCylinders > 0 ? (successfulFills / totalCylinders) * 100 : 0;
-    const failureRate = totalCylinders > 0 ? (failedFills / totalCylinders) * 100 : 0;
-    
-    // Group fills by gas type
-    const fillsByGasType = {};
-    fillingBatches.forEach(batch => {
-      batch.FillingDetails.forEach(detail => {
-        const gasType = detail.Cylinder.gasType;
-        fillsByGasType[gasType] = fillsByGasType[gasType] || { total: 0, success: 0, failed: 0 };
-        fillsByGasType[gasType].total++;
-        
-        if (detail.status === 'Success') {
-          fillsByGasType[gasType].success++;
-        } else if (detail.status === 'Failed') {
-          fillsByGasType[gasType].failed++;
-        }
-      });
-    });
-    
-    // Group by day
-    const fillsByDay = {};
-    fillingBatches.forEach(batch => {
-      const day = new Date(batch.startTime).toISOString().split('T')[0];
-      fillsByDay[day] = fillsByDay[day] || { total: 0, success: 0, failed: 0 };
-      
-      batch.FillingDetails.forEach(detail => {
-        fillsByDay[day].total++;
-        
-        if (detail.status === 'Success') {
-          fillsByDay[day].success++;
-        } else if (detail.status === 'Failed') {
-          fillsByDay[day].failed++;
-        }
-      });
-    });
-    
-    res.status(200).json({
-      startDate: reportStartDate.toISOString().split('T')[0],
-      endDate: reportEndDate.toISOString().split('T')[0],
-      totalBatches: fillingBatches.length,
-      totalCylinders,
-      successfulFills,
-      failedFills,
-      successRate,
-      failureRate,
-      fillsByGasType,
-      fillsByDay
-    });
-  } catch (error) {
-    console.error('Filling report error:', error);
-    res.status(500).json({ message: 'Server error while generating filling report' });
-  }
-};
-
-// Get customer activity report
-const getCustomerActivityReport = async (req, res) => {
-  try {
-    const { customerId, startDate, endDate } = req.query;
-    
-    if (!customerId) {
-      return res.status(400).json({ message: 'Customer ID is required' });
-    }
-    
-    // Check if customer exists
-    const customer = await Customer.findOne({
-      where: { id: customerId, isActive: true }
-    });
-    
-    if (!customer) {
-      return res.status(404).json({ message: 'Customer not found' });
-    }
-    
-    // Default to last 90 days if dates not provided
-    const today = new Date();
-    const defaultStartDate = new Date();
-    defaultStartDate.setDate(today.getDate() - 90);
-    
-    const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
-    const reportEndDate = endDate ? new Date(endDate) : today;
-    
-    // Set end date to end of day
-    reportEndDate.setHours(23, 59, 59, 999);
-    
-    // Get sales for this customer in the period
-    const sales = await Sale.findAll({
+    const todayInspections = await Inspection.count({
       where: {
-        customerId,
+        inspectionDate: {
+          [Op.gte]: today,
+          [Op.lt]: tomorrow
+        }
+      }
+    });
+    
+    // Get current month's sales total
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthSalesTotal = await Sale.sum('totalAmount', {
+      where: {
         saleDate: {
-          [sequelize.Op.between]: [reportStartDate, reportEndDate]
+          [Op.gte]: firstDayOfMonth,
+          [Op.lt]: tomorrow
         }
-      },
-      include: [
-        { 
-          model: SaleItem,
-          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
-        }
-      ],
-      order: [['saleDate', 'DESC']]
+      }
     });
     
-    // Calculate totals
-    const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
-    const outstanding = totalAmount - totalPaid;
-    
-    // Count cylinders by type
-    const cylindersByType = {};
-    let totalCylinders = 0;
-    
-    sales.forEach(sale => {
-      sale.SaleItems.forEach(item => {
-        totalCylinders++;
-        const gasType = item.Cylinder.gasType;
-        cylindersByType[gasType] = (cylindersByType[gasType] || 0) + 1;
-      });
-    });
-    
-    // Count cylinders by size
-    const cylindersBySize = {};
-    
-    sales.forEach(sale => {
-      sale.SaleItems.forEach(item => {
-        const size = item.Cylinder.size;
-        cylindersBySize[size] = (cylindersBySize[size] || 0) + 1;
-      });
-    });
-    
-    // Calculate returns
-    const totalReturns = sales.reduce((sum, sale) => {
-      return sum + sale.SaleItems.filter(item => item.returnedEmpty).length;
-    }, 0);
-    
-    const returnRate = totalCylinders > 0 ? (totalReturns / totalCylinders) * 100 : 0;
-    
-    // Get cylinders currently with this customer
-    const cylindersWithCustomer = await Cylinder.findAll({
+    // Get active cylinders in filling/delivery
+    const activeCylinders = await Cylinder.count({
       where: {
-        isActive: true,
-        currentCustomerId: customerId
-      },
-      attributes: ['id', 'serialNumber', 'size', 'gasType', 'status', 'lastFilledDate']
+        status: {
+          [Op.in]: ['InTransit']
+        }
+      }
     });
     
-    res.status(200).json({
-      customer: {
-        id: customer.id,
-        name: customer.name,
-        type: customer.type,
-        currentCredit: customer.currentCredit,
-        creditLimit: customer.creditLimit
-      },
-      startDate: reportStartDate.toISOString().split('T')[0],
-      endDate: reportEndDate.toISOString().split('T')[0],
-      totalSales,
-      totalAmount,
-      totalPaid,
-      outstanding,
-      totalCylinders,
-      totalReturns,
-      returnRate,
-      cylindersByType,
-      cylindersBySize,
-      cylindersWithCustomer,
-      sales
+    // Format cylinder status counts
+    const cylinderStatus = cylinderStatusCounts.reduce((acc, item) => {
+      acc[item.status] = parseInt(item.getDataValue('count'));
+      return acc;
+    }, {});
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        counts: {
+          totalCylinders,
+          totalCustomers,
+          totalFactories,
+          cylinderStatus,
+          activeCylinders
+        },
+        today: {
+          sales: todaySales,
+          fillings: todayFillings,
+          inspections: todayInspections
+        },
+        monthSalesTotal: monthSalesTotal || 0
+      }
     });
   } catch (error) {
-    console.error('Customer activity report error:', error);
-    res.status(500).json({ message: 'Server error while generating customer activity report' });
+    console.error('Dashboard overview error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating dashboard overview',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-module.exports = {
-  getDailySalesReport,
-  getMonthlySalesReport,
-  getCylinderStatistics,
-  getFillingReport,
-  getCustomerActivityReport
+/**
+ * Generate inventory report
+ */
+exports.getInventoryReport = async (req, res) => {
+  try {
+    const { factoryId, status, type } = req.query;
+    
+    // Build filter
+    const filter = {};
+    
+    if (factoryId) {
+      filter.factoryId = factoryId;
+    }
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (type) {
+      filter.type = type;
+    }
+    
+    // Get cylinder counts by status
+    const statusCounts = await Cylinder.findAll({
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: filter,
+      group: ['status']
+    });
+    
+    // Get cylinder counts by factory
+    const factoryCounts = await Cylinder.findAll({
+      attributes: [
+        'factoryId',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: filter,
+      include: [
+        { model: Factory, as: 'factory', attributes: ['name'] }
+      ],
+      group: ['factoryId', 'factory.id', 'factory.name']
+    });
+    
+    // Get cylinder counts by type
+    const typeCounts = await Cylinder.findAll({
+      attributes: [
+        'type',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: filter,
+      group: ['type']
+    });
+    
+    // Get cylinders that haven't been filled in 3 months
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    const inactiveCylinders = await Cylinder.findAll({
+      where: {
+        ...filter,
+        [Op.or]: [
+          { lastFilled: null },
+          { lastFilled: { [Op.lt]: threeMonthsAgo } }
+        ]
+      },
+      include: [
+        { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+      ],
+      limit: 50
+    });
+    
+    // Format status counts
+    const cylinderStatus = statusCounts.reduce((acc, item) => {
+      acc[item.status] = parseInt(item.getDataValue('count'));
+      return acc;
+    }, {});
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        statusBreakdown: cylinderStatus,
+        factoryBreakdown: factoryCounts,
+        typeBreakdown: typeCounts,
+        inactiveCylinders: {
+          count: inactiveCylinders.length,
+          cylinders: inactiveCylinders
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Inventory report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating inventory report',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Generate sales report
+ */
+exports.getSalesReport = async (req, res) => {
+  try {
+    const { 
+      startDate, 
+      endDate, 
+      customerId, 
+      sellerId, 
+      deliveryMethod,
+      groupBy = 'day'
+    } = req.query;
+    
+    // Build date filter
+    const dateFilter = {};
+    
+    if (startDate || endDate) {
+      dateFilter.saleDate = {};
+      
+      if (startDate) {
+        dateFilter.saleDate[Op.gte] = new Date(startDate);
+      }
+      
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        dateFilter.saleDate[Op.lte] = endDateTime;
+      }
+    } else {
+      // Default to last 30 days
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      dateFilter.saleDate = {
+        [Op.gte]: thirtyDaysAgo,
+        [Op.lte]: today
+      };
+    }
+    
+    // Build additional filters
+    const filter = { ...dateFilter };
+    
+    if (customerId) {
+      filter.customerId = customerId;
+    }
+    
+    if (sellerId) {
+      filter.sellerId = sellerId;
+    }
+    
+    if (deliveryMethod) {
+      filter.deliveryMethod = deliveryMethod;
+    }
+    
+    // Get sales data grouped by specified time period
+    const salesByTime = await Sale.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', groupBy, sequelize.col('saleDate')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount'],
+        [sequelize.fn('SUM', sequelize.col('paidAmount')), 'paidAmount']
+      ],
+      where: filter,
+      group: [sequelize.fn('date_trunc', groupBy, sequelize.col('saleDate'))],
+      order: [[sequelize.fn('date_trunc', groupBy, sequelize.col('saleDate')), 'ASC']]
+    });
+    
+    // Get sales data grouped by customer
+    const salesByCustomer = await Sale.findAll({
+      attributes: [
+        'customerId',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount'],
+        [sequelize.fn('SUM', sequelize.col('paidAmount')), 'paidAmount']
+      ],
+      where: filter,
+      include: [
+        { model: Customer, as: 'customer', attributes: ['name', 'type'] }
+      ],
+      group: ['customerId', 'customer.id', 'customer.name', 'customer.type'],
+      order: [[sequelize.fn('SUM', sequelize.col('totalAmount')), 'DESC']],
+      limit: 10
+    });
+    
+    // Get sales data grouped by payment status
+    const salesByPaymentStatus = await Sale.findAll({
+      attributes: [
+        'paymentStatus',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount']
+      ],
+      where: filter,
+      group: ['paymentStatus']
+    });
+    
+    // Get sales data grouped by delivery status
+    const salesByDeliveryStatus = await Sale.findAll({
+      attributes: [
+        'deliveryStatus',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount']
+      ],
+      where: filter,
+      group: ['deliveryStatus']
+    });
+    
+    // Get overall totals
+    const totals = await Sale.findOne({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('id')), 'totalSales'],
+        [sequelize.fn('SUM', sequelize.col('totalAmount')), 'totalAmount'],
+        [sequelize.fn('SUM', sequelize.col('paidAmount')), 'paidAmount'],
+        [
+          sequelize.literal('SUM("totalAmount") - SUM("paidAmount")'),
+          'outstandingAmount'
+        ]
+      ],
+      where: filter
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        dateRange: {
+          start: dateFilter.saleDate?.[Op.gte] || null,
+          end: dateFilter.saleDate?.[Op.lte] || null
+        },
+        totals: {
+          sales: parseInt(totals.getDataValue('totalSales') || 0),
+          amount: parseFloat(totals.getDataValue('totalAmount') || 0),
+          paid: parseFloat(totals.getDataValue('paidAmount') || 0),
+          outstanding: parseFloat(totals.getDataValue('outstandingAmount') || 0)
+        },
+        salesByTime,
+        salesByCustomer,
+        salesByPaymentStatus,
+        salesByDeliveryStatus
+      }
+    });
+  } catch (error) {
+    console.error('Sales report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating sales report',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Generate operations report
+ */
+exports.getOperationsReport = async (req, res) => {
+  try {
+    const { 
+      startDate, 
+      endDate,
+      userId
+    } = req.query;
+    
+    // Build date filter
+    const dateFilter = {};
+    
+    if (startDate || endDate) {
+      const startTimeFilter = {};
+      const inspectionDateFilter = {};
+      
+      if (startDate) {
+        startTimeFilter[Op.gte] = new Date(startDate);
+        inspectionDateFilter[Op.gte] = new Date(startDate);
+      }
+      
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        startTimeFilter[Op.lte] = endDateTime;
+        inspectionDateFilter[Op.lte] = endDateTime;
+      }
+      
+      dateFilter.filling = { startTime: startTimeFilter };
+      dateFilter.inspection = { inspectionDate: inspectionDateFilter };
+    } else {
+      // Default to last 30 days
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      dateFilter.filling = { 
+        startTime: {
+          [Op.gte]: thirtyDaysAgo,
+          [Op.lte]: today
+        }
+      };
+      
+      dateFilter.inspection = { 
+        inspectionDate: {
+          [Op.gte]: thirtyDaysAgo,
+          [Op.lte]: today
+        }
+      };
+    }
+    
+    // Build user filter
+    const userFilter = {};
+    
+    if (userId) {
+      userFilter.filling = {
+        [Op.or]: [
+          { startedById: userId },
+          { endedById: userId }
+        ]
+      };
+      
+      userFilter.inspection = { inspectedById: userId };
+    }
+    
+    // Get filling data
+    const fillingStats = await Filling.findAll({
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        ...dateFilter.filling,
+        ...userFilter.filling
+      },
+      group: ['status']
+    });
+    
+    // Get filling data by day
+    const fillingByDay = await Filling.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', 'day', sequelize.col('startTime')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        ...dateFilter.filling,
+        ...userFilter.filling
+      },
+      group: [sequelize.fn('date_trunc', 'day', sequelize.col('startTime'))],
+      order: [[sequelize.fn('date_trunc', 'day', sequelize.col('startTime')), 'ASC']]
+    });
+    
+    // Get inspection data
+    const inspectionStats = await Inspection.findAll({
+      attributes: [
+        'result',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        ...dateFilter.inspection,
+        ...userFilter.inspection
+      },
+      group: ['result']
+    });
+    
+    // Get inspection data by day
+    const inspectionByDay = await Inspection.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', 'day', sequelize.col('inspectionDate')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        ...dateFilter.inspection,
+        ...userFilter.inspection
+      },
+      group: [sequelize.fn('date_trunc', 'day', sequelize.col('inspectionDate'))],
+      order: [[sequelize.fn('date_trunc', 'day', sequelize.col('inspectionDate')), 'ASC']]
+    });
+    
+    // Get top filling lines
+    const topFillingLines = await Filling.findAll({
+      attributes: [
+        'lineNumber',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        ...dateFilter.filling,
+        ...userFilter.filling
+      },
+      group: ['lineNumber'],
+      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+      limit: 5
+    });
+    
+    // Get top users for filling
+    const topFillersData = await Filling.findAll({
+      attributes: [
+        'startedById',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: dateFilter.filling,
+      include: [
+        { model: User, as: 'startedBy', attributes: ['name'] }
+      ],
+      group: ['startedById', 'startedBy.id', 'startedBy.name'],
+      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+      limit: 5
+    });
+    
+    // Get top users for inspection
+    const topInspectorsData = await Inspection.findAll({
+      attributes: [
+        'inspectedById',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: dateFilter.inspection,
+      include: [
+        { model: User, as: 'inspectedBy', attributes: ['name'] }
+      ],
+      group: ['inspectedById', 'inspectedBy.id', 'inspectedBy.name'],
+      order: [[sequelize.fn('COUNT', sequelize.col('id')), 'DESC']],
+      limit: 5
+    });
+    
+    // Format the data
+    const fillingStatusBreakdown = fillingStats.reduce((acc, item) => {
+      acc[item.status] = parseInt(item.getDataValue('count'));
+      return acc;
+    }, {});
+    
+    const inspectionResultBreakdown = inspectionStats.reduce((acc, item) => {
+      acc[item.result] = parseInt(item.getDataValue('count'));
+      return acc;
+    }, {});
+    
+    const topFillers = topFillersData.map(item => ({
+      userId: item.startedById,
+      name: item.startedBy.name,
+      count: parseInt(item.getDataValue('count'))
+    }));
+    
+    const topInspectors = topInspectorsData.map(item => ({
+      userId: item.inspectedById,
+      name: item.inspectedBy.name,
+      count: parseInt(item.getDataValue('count'))
+    }));
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        dateRange: {
+          start: dateFilter.filling.startTime?.[Op.gte] || null,
+          end: dateFilter.filling.startTime?.[Op.lte] || null
+        },
+        filling: {
+          statusBreakdown: fillingStatusBreakdown,
+          byDay: fillingByDay,
+          topLines: topFillingLines,
+          topFillers
+        },
+        inspection: {
+          resultBreakdown: inspectionResultBreakdown,
+          byDay: inspectionByDay,
+          topInspectors
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Operations report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating operations report',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Generate customer accounts report
+ */
+exports.getCustomerAccountsReport = async (req, res) => {
+  try {
+    // Get customers with outstanding balances
+    const creditCustomers = await Customer.findAll({
+      where: {
+        paymentType: 'Credit',
+        balance: {
+          [Op.gt]: 0
+        }
+      },
+      order: [['balance', 'DESC']]
+    });
+    
+    // Get total outstanding balance
+    const totalOutstanding = creditCustomers.reduce(
+      (sum, customer) => sum + parseFloat(customer.balance),
+      0
+    );
+    
+    // Get overdue payments (sales that are delivered but not fully paid, older than 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const overduePayments = await Sale.findAll({
+      where: {
+        deliveryStatus: 'Delivered',
+        paymentStatus: {
+          [Op.in]: ['Pending', 'Partial']
+        },
+        saleDate: {
+          [Op.lt]: thirtyDaysAgo
+        }
+      },
+      include: [
+        { model: Customer, as: 'customer', attributes: ['id', 'name', 'type'] }
+      ],
+      order: [['saleDate', 'ASC']]
+    });
+    
+    // Get payment statistics by customer type
+    const paymentStatsByType = await Customer.findAll({
+      attributes: [
+        'type',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'customerCount'],
+        [sequelize.fn('SUM', sequelize.col('balance')), 'totalBalance']
+      ],
+      where: {
+        paymentType: 'Credit'
+      },
+      group: ['type']
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalCreditCustomers: creditCustomers.length,
+          totalOutstandingBalance: totalOutstanding,
+          overduePaymentsCount: overduePayments.length
+        },
+        creditCustomers,
+        overduePayments,
+        paymentStatsByType
+      }
+    });
+  } catch (error) {
+    console.error('Customer accounts report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while generating customer accounts report',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
 };

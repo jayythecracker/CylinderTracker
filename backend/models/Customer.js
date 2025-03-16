@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
+const sequelize = require('../config/db');
 
 const CUSTOMER_TYPES = {
   HOSPITAL: 'hospital',
@@ -77,8 +77,9 @@ const Customer = sequelize.define('Customer', {
   timestamps: true
 });
 
-module.exports = {
-  Customer,
-  CUSTOMER_TYPES,
-  PAYMENT_TYPES
+Customer.CUSTOMER_TYPES = CUSTOMER_TYPES;
+Customer.PAYMENT_TYPES = PAYMENT_TYPES;
+
+module.exports = (sequelize, DataTypes) => {
+  return Customer;
 };

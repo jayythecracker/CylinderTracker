@@ -1,151 +1,100 @@
-const { sequelize, Sequelize } = require('../config/db');
-const User = require('./user');
-const Cylinder = require('./cylinder');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const FillingLine = sequelize.define('FillingLine', {
+const Filling = sequelize.define('Filling', {
   id: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true
   },
-  name: {
-    type: Sequelize.STRING,
-    allowNull: false
-  },
-  capacity: {
-    type: Sequelize.INTEGER,
+  cylinderId: {
+    type: DataTypes.INTEGER,
     allowNull: false,
-    defaultValue: 10
-  },
-  gasType: {
-    type: Sequelize.ENUM('Medical', 'Industrial'),
-    allowNull: false
-  },
-  status: {
-    type: Sequelize.ENUM('Idle', 'Active', 'Maintenance'),
-    defaultValue: 'Idle'
-  },
-  isActive: {
-    type: Sequelize.BOOLEAN,
-    defaultValue: true
-  }
-}, {
-  timestamps: true
-});
-
-const FillingBatch = sequelize.define('FillingBatch', {
-  id: {
-    type: Sequelize.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  batchNumber: {
-    type: Sequelize.STRING,
-    allowNull: false,
-    unique: true
-  },
-  startTime: {
-    type: Sequelize.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW
-  },
-  endTime: {
-    type: Sequelize.DATE,
-    allowNull: true
-  },
-  status: {
-    type: Sequelize.ENUM('In Progress', 'Completed', 'Failed'),
-    defaultValue: 'In Progress'
-  },
-  fillingLineId: {
-    type: Sequelize.INTEGER,
     references: {
-      model: FillingLine,
+      model: 'Cylinders',
       key: 'id'
     }
   },
   startedById: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
+    allowNull: false,
     references: {
-      model: User,
+      model: 'Users',
       key: 'id'
     }
   },
   endedById: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     allowNull: true,
     references: {
-      model: User,
+      model: 'Users',
       key: 'id'
     }
   },
-  notes: {
-    type: Sequelize.TEXT,
+  lineNumber: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    comment: 'Filling line number'
+  },
+  startTime: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
+  endTime: {
+    type: DataTypes.DATE,
     allowNull: true
-  }
-}, {
-  timestamps: true
-});
-
-const FillingDetail = sequelize.define('FillingDetail', {
-  id: {
-    type: Sequelize.INTEGER,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  fillingBatchId: {
-    type: Sequelize.INTEGER,
-    references: {
-      model: FillingBatch,
-      key: 'id'
-    }
-  },
-  cylinderId: {
-    type: Sequelize.INTEGER,
-    references: {
-      model: Cylinder,
-      key: 'id'
-    }
   },
   initialPressure: {
-    type: Sequelize.FLOAT,
+    type: DataTypes.FLOAT,
     allowNull: false,
-    defaultValue: 0
+    comment: 'Initial pressure in bars'
   },
   finalPressure: {
-    type: Sequelize.FLOAT,
-    allowNull: true
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    comment: 'Final pressure in bars'
+  },
+  targetPressure: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    comment: 'Target pressure in bars'
+  },
+  gasType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    comment: 'Type of gas filled'
   },
   status: {
-    type: Sequelize.ENUM('Pending', 'In Progress', 'Success', 'Failed'),
-    defaultValue: 'Pending'
+    type: DataTypes.ENUM('InProgress', 'Completed', 'Failed'),
+    defaultValue: 'InProgress'
   },
   notes: {
-    type: Sequelize.TEXT,
+    type: DataTypes.TEXT,
     allowNull: true
   }
 }, {
-  timestamps: true
+  hooks: {
+    afterUpdate: async (filling) => {
+      // Update cylinder status based on filling status
+      if (filling.status === 'Completed') {
+        const Cylinder = require('./cylinder');
+        await Cylinder.update(
+          { 
+            status: 'Full',
+            lastFilled: filling.endTime
+          },
+          { where: { id: filling.cylinderId } }
+        );
+      } else if (filling.status === 'Failed') {
+        const Cylinder = require('./cylinder');
+        await Cylinder.update(
+          { status: 'Error' },
+          { where: { id: filling.cylinderId } }
+        );
+      }
+    }
+  }
 });
 
-// Relationships
-FillingLine.hasMany(FillingBatch, { foreignKey: 'fillingLineId' });
-FillingBatch.belongsTo(FillingLine, { foreignKey: 'fillingLineId' });
-
-User.hasMany(FillingBatch, { foreignKey: 'startedById', as: 'StartedBatches' });
-FillingBatch.belongsTo(User, { foreignKey: 'startedById', as: 'StartedBy' });
-
-User.hasMany(FillingBatch, { foreignKey: 'endedById', as: 'EndedBatches' });
-FillingBatch.belongsTo(User, { foreignKey: 'endedById', as: 'EndedBy' });
-
-FillingBatch.hasMany(FillingDetail, { foreignKey: 'fillingBatchId' });
-FillingDetail.belongsTo(FillingBatch, { foreignKey: 'fillingBatchId' });
-
-Cylinder.hasMany(FillingDetail, { foreignKey: 'cylinderId' });
-FillingDetail.belongsTo(Cylinder, { foreignKey: 'cylinderId' });
-
-module.exports = {
-  FillingLine,
-  FillingBatch,
-  FillingDetail
-};
+module.exports = Filling;

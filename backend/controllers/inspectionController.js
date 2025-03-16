@@ -1,268 +1,388 @@
-const Inspection = require('../models/inspection');
-const Cylinder = require('../models/cylinder');
-const User = require('../models/user');
-const { sequelize } = require('../config/db');
+const { Inspection, Cylinder, User } = require('../models');
 const { Op } = require('sequelize');
 
-// Get all inspections with pagination and filters
-const getAllInspections = async (req, res) => {
+/**
+ * Get all inspections with pagination and filtering
+ */
+exports.getAllInspections = async (req, res) => {
   try {
+    // Get query parameters for filtering and pagination
     const { 
-      result,
-      cylinderId,
+      result, 
       inspectedById,
-      startDate,
+      startDate, 
       endDate,
       page = 1, 
       limit = 20 
     } = req.query;
     
-    // Build filter conditions
-    const whereConditions = {};
+    // Build filter object
+    const filter = {};
     
-    if (result) whereConditions.result = result;
-    if (cylinderId) whereConditions.cylinderId = cylinderId;
-    if (inspectedById) whereConditions.inspectedById = inspectedById;
-    
-    if (startDate && endDate) {
-      whereConditions.inspectionDate = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
-      };
-    } else if (startDate) {
-      whereConditions.inspectionDate = {
-        [Op.gte]: new Date(startDate)
-      };
-    } else if (endDate) {
-      whereConditions.inspectionDate = {
-        [Op.lte]: new Date(endDate)
-      };
+    if (result) {
+      filter.result = result;
     }
     
-    // Pagination
+    if (inspectedById) {
+      filter.inspectedById = inspectedById;
+    }
+    
+    // Date range filter
+    if (startDate || endDate) {
+      filter.inspectionDate = {};
+      
+      if (startDate) {
+        filter.inspectionDate[Op.gte] = new Date(startDate);
+      }
+      
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        filter.inspectionDate[Op.lte] = endDateTime;
+      }
+    }
+    
+    // Calculate pagination
     const offset = (page - 1) * limit;
     
+    // Find inspections with pagination
     const { count, rows: inspections } = await Inspection.findAndCountAll({
-      where: whereConditions,
+      where: filter,
       include: [
-        { model: Cylinder },
-        { model: User, as: 'InspectedBy', attributes: ['id', 'name'] }
+        { model: Cylinder, as: 'cylinder', attributes: ['id', 'serialNumber', 'size', 'type', 'status'] },
+        { model: User, as: 'inspectedBy', attributes: ['id', 'name'] }
       ],
       order: [['inspectionDate', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
     
-    res.status(200).json({
-      inspections,
-      totalCount: count,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+    // Calculate total pages
+    const totalPages = Math.ceil(count / limit);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        inspections,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
     });
   } catch (error) {
     console.error('Get all inspections error:', error);
-    res.status(500).json({ message: 'Server error while fetching inspections' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving inspections',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Get inspection by ID
-const getInspectionById = async (req, res) => {
+/**
+ * Get inspection by ID
+ */
+exports.getInspectionById = async (req, res) => {
   try {
-    const inspectionId = req.params.id;
+    const { id } = req.params;
     
-    const inspection = await Inspection.findOne({
-      where: { id: inspectionId },
+    // Find inspection
+    const inspection = await Inspection.findByPk(id, {
       include: [
-        { model: Cylinder },
-        { model: User, as: 'InspectedBy', attributes: ['id', 'name'] }
+        { model: Cylinder, as: 'cylinder', attributes: ['id', 'serialNumber', 'size', 'type', 'status', 'factoryId'] },
+        { model: User, as: 'inspectedBy', attributes: ['id', 'name'] }
       ]
     });
     
     if (!inspection) {
-      return res.status(404).json({ message: 'Inspection not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Inspection not found'
+      });
     }
     
-    res.status(200).json({ inspection });
+    // Send response
+    res.json({
+      success: true,
+      data: { inspection }
+    });
   } catch (error) {
     console.error('Get inspection by ID error:', error);
-    res.status(500).json({ message: 'Server error while fetching inspection' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving inspection',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Create new inspection
-const createInspection = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
+/**
+ * Create new inspection
+ */
+exports.createInspection = async (req, res) => {
   try {
     const { 
-      cylinderId,
-      pressureReading,
-      visualInspection,
-      result,
-      notes
+      cylinderId, 
+      pressureCheck, 
+      visualCheck, 
+      valveCheck, 
+      result, 
+      rejectionReason, 
+      notes 
     } = req.body;
     
-    const inspectedById = req.user.id;
-    
-    // Validate required fields
-    if (!cylinderId || pressureReading === undefined || result === undefined) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'Cylinder ID, pressure reading and result are required' 
+    // Validate input
+    if (!cylinderId || pressureCheck === undefined || visualCheck === undefined || valveCheck === undefined || !result) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cylinder ID, pressure check, visual check, valve check, and result are required'
       });
     }
     
     // Check if cylinder exists
-    const cylinder = await Cylinder.findOne({
-      where: { id: cylinderId, isActive: true },
-      transaction
-    });
+    const cylinder = await Cylinder.findByPk(cylinderId);
     
     if (!cylinder) {
-      await transaction.rollback();
-      return res.status(404).json({ message: 'Cylinder not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
+    }
+    
+    // Check if result is valid
+    if (!['Approved', 'Rejected'].includes(result)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Result must be either "Approved" or "Rejected"'
+      });
+    }
+    
+    // If result is Rejected, rejection reason is required
+    if (result === 'Rejected' && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required when result is Rejected'
+      });
     }
     
     // Create new inspection
-    const newInspection = await Inspection.create({
+    const inspection = await Inspection.create({
       cylinderId,
-      inspectedById,
-      pressureReading,
-      visualInspection: visualInspection !== undefined ? visualInspection : true,
+      inspectedById: req.user.id,
+      pressureCheck,
+      visualCheck,
+      valveCheck,
       result,
-      notes
-    }, { transaction });
-    
-    // Update cylinder status based on inspection result
-    if (result === 'Approved') {
-      cylinder.status = cylinder.status === 'Full' ? 'Full' : 'Empty';
-    } else {
-      cylinder.status = 'Error';
-    }
-    
-    cylinder.lastInspectionDate = new Date();
-    await cylinder.save({ transaction });
-    
-    await transaction.commit();
-    
-    res.status(201).json({
-      message: 'Inspection created successfully',
-      inspection: newInspection
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Create inspection error:', error);
-    res.status(500).json({ message: 'Server error while creating inspection' });
-  }
-};
-
-// Batch inspect cylinders
-const batchInspect = async (req, res) => {
-  const transaction = await sequelize.transaction();
-  
-  try {
-    const { cylinderIds, result, notes } = req.body;
-    const inspectedById = req.user.id;
-    
-    // Validate required fields
-    if (!cylinderIds || !cylinderIds.length || result === undefined) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'Cylinder IDs and result are required' 
-      });
-    }
-    
-    // Check if all cylinders exist
-    const cylinders = await Cylinder.findAll({
-      where: { 
-        id: { [Op.in]: cylinderIds },
-        isActive: true
-      },
-      transaction
+      rejectionReason: rejectionReason || null,
+      notes: notes || null
     });
     
-    if (cylinders.length !== cylinderIds.length) {
-      await transaction.rollback();
-      return res.status(400).json({ 
-        message: 'One or more cylinders not found' 
-      });
-    }
-    
-    // Create inspection records and update cylinder statuses
-    const inspections = [];
-    for (const cylinder of cylinders) {
-      // Create inspection record
-      const newInspection = await Inspection.create({
-        cylinderId: cylinder.id,
-        inspectedById,
-        pressureReading: cylinder.status === 'Full' ? cylinder.workingPressure : 0,
-        visualInspection: true,
-        result,
-        notes
-      }, { transaction });
-      
-      inspections.push(newInspection);
-      
-      // Update cylinder status
-      if (result === 'Approved') {
-        cylinder.status = cylinder.status === 'Full' ? 'Full' : 'Empty';
-      } else {
-        cylinder.status = 'Error';
-      }
-      
-      cylinder.lastInspectionDate = new Date();
-      await cylinder.save({ transaction });
-    }
-    
-    await transaction.commit();
-    
-    res.status(201).json({
-      message: 'Batch inspection completed successfully',
-      inspectionCount: inspections.length
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error('Batch inspect error:', error);
-    res.status(500).json({ message: 'Server error while performing batch inspection' });
-  }
-};
-
-// Get cylinder inspection history
-const getCylinderInspectionHistory = async (req, res) => {
-  try {
-    const cylinderId = req.params.cylinderId;
-    
-    // Check if cylinder exists
-    const cylinder = await Cylinder.findOne({
-      where: { id: cylinderId, isActive: true }
-    });
-    
-    if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
-    }
-    
-    // Get inspection history
-    const inspections = await Inspection.findAll({
-      where: { cylinderId },
+    // Get detailed inspection info
+    const detailedInspection = await Inspection.findByPk(inspection.id, {
       include: [
-        { model: User, as: 'InspectedBy', attributes: ['id', 'name'] }
-      ],
-      order: [['inspectionDate', 'DESC']]
+        { model: Cylinder, as: 'cylinder', attributes: ['id', 'serialNumber', 'size', 'type', 'status'] },
+        { model: User, as: 'inspectedBy', attributes: ['id', 'name'] }
+      ]
     });
     
-    res.status(200).json({
-      cylinder,
-      inspections
+    // Send response
+    res.status(201).json({
+      success: true,
+      data: { inspection: detailedInspection }
     });
   } catch (error) {
-    console.error('Get cylinder inspection history error:', error);
-    res.status(500).json({ message: 'Server error while fetching cylinder inspection history' });
+    console.error('Create inspection error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating inspection',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-module.exports = {
-  getAllInspections,
-  getInspectionById,
-  createInspection,
-  batchInspect,
-  getCylinderInspectionHistory
+/**
+ * Batch create inspections (approve all)
+ */
+exports.batchCreateInspections = async (req, res) => {
+  try {
+    const { 
+      cylinderIds, 
+      pressureCheck, 
+      visualCheck, 
+      valveCheck, 
+      result, 
+      notes 
+    } = req.body;
+    
+    // Validate input
+    if (!cylinderIds || !Array.isArray(cylinderIds) || cylinderIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one cylinder ID is required'
+      });
+    }
+    
+    if (pressureCheck === undefined || visualCheck === undefined || valveCheck === undefined || !result) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pressure check, visual check, valve check, and result are required'
+      });
+    }
+    
+    // Check if result is valid
+    if (!['Approved', 'Rejected'].includes(result)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Result must be either "Approved" or "Rejected"'
+      });
+    }
+    
+    // Create inspections for each cylinder
+    const inspections = await Promise.all(
+      cylinderIds.map(async (cylinderId) => {
+        // Check if cylinder exists
+        const cylinder = await Cylinder.findByPk(cylinderId);
+        
+        if (!cylinder) {
+          return {
+            cylinderId,
+            success: false,
+            message: 'Cylinder not found'
+          };
+        }
+        
+        try {
+          // Create inspection
+          const inspection = await Inspection.create({
+            cylinderId,
+            inspectedById: req.user.id,
+            pressureCheck,
+            visualCheck,
+            valveCheck,
+            result,
+            notes: notes || null
+          });
+          
+          return {
+            cylinderId,
+            inspectionId: inspection.id,
+            success: true
+          };
+        } catch (error) {
+          return {
+            cylinderId,
+            success: false,
+            message: error.message
+          };
+        }
+      })
+    );
+    
+    // Count successes and failures
+    const successCount = inspections.filter(item => item.success).length;
+    const failureCount = inspections.length - successCount;
+    
+    // Send response
+    res.status(201).json({
+      success: true,
+      data: { 
+        inspections,
+        summary: {
+          total: inspections.length,
+          success: successCount,
+          failure: failureCount
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Batch create inspections error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating batch inspections',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Get inspection stats (daily, weekly, monthly)
+ */
+exports.getInspectionStats = async (req, res) => {
+  try {
+    const { period = 'daily' } = req.query;
+    
+    let timeGroup, timeRange;
+    const now = new Date();
+    
+    // Set time grouping based on period
+    if (period === 'weekly') {
+      timeGroup = 'day';
+      // Last 7 days
+      timeRange = new Date(now.setDate(now.getDate() - 7));
+    } else if (period === 'monthly') {
+      timeGroup = 'day';
+      // Last 30 days
+      timeRange = new Date(now.setDate(now.getDate() - 30));
+    } else {
+      // daily - default
+      timeGroup = 'hour';
+      // Last 24 hours
+      timeRange = new Date(now.setHours(now.getHours() - 24));
+    }
+    
+    // Get approved inspections stats
+    const approvedStats = await Inspection.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate')), 'time'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        result: 'Approved',
+        inspectionDate: {
+          [Op.gte]: timeRange
+        }
+      },
+      group: [sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate'))],
+      order: [[sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate')), 'ASC']]
+    });
+    
+    // Get rejected inspections stats
+    const rejectedStats = await Inspection.findAll({
+      attributes: [
+        [sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate')), 'time'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: {
+        result: 'Rejected',
+        inspectionDate: {
+          [Op.gte]: timeRange
+        }
+      },
+      group: [sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate'))],
+      order: [[sequelize.fn('date_trunc', timeGroup, sequelize.col('inspectionDate')), 'ASC']]
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        period,
+        stats: {
+          approved: approvedStats,
+          rejected: rejectedStats
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get inspection stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving inspection statistics',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
 };

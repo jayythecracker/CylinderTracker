@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
+const sequelize = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 // User roles enum
@@ -74,7 +74,8 @@ User.prototype.comparePassword = async function(candidatePassword) {
 };
 
 // Export User model and roles
-module.exports = {
-  User,
-  USER_ROLES
+module.exports = (sequelize, DataTypes) => {
+  // Add USER_ROLES to the model
+  User.USER_ROLES = USER_ROLES;
+  return User;
 };

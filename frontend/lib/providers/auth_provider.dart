@@ -1,68 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/user.dart';
-import '../services/auth_service.dart';
+import 'package:cylinder_management/models/user.dart';
+import 'package:cylinder_management/services/auth_service.dart';
 
-// Provider for AuthService
-final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService();
+// Provider for the current authenticated user
+final authProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
+  return AuthNotifier(AuthService());
 });
 
-// Provider for current user state
-final authProvider = AsyncNotifierProvider<AuthNotifier, User?>(() {
-  return AuthNotifier();
-});
-
-class AuthNotifier extends AsyncNotifier<User?> {
-  late AuthService _authService;
+class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
+  final AuthService _authService;
   
-  @override
-  Future<User?> build() async {
-    _authService = ref.read(authServiceProvider);
-    return _authService.getCurrentUser();
+  AuthNotifier(this._authService) : super(const AsyncValue.loading()) {
+    _init();
+  }
+  
+  // Initialize by checking for existing user
+  Future<void> _init() async {
+    try {
+      state = const AsyncValue.loading();
+      final user = await _authService.getCurrentUser();
+      state = AsyncValue.data(user);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
   }
   
   // Login user
   Future<void> login(String email, String password) async {
-    state = const AsyncValue.loading();
-    
     try {
+      state = const AsyncValue.loading();
       final user = await _authService.login(email, password);
       state = AsyncValue.data(user);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Refresh user profile
-  Future<void> refreshProfile() async {
-    state = const AsyncValue.loading();
-    
-    try {
-      final user = await _authService.getUserProfile();
-      state = AsyncValue.data(user);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Update user profile
-  Future<void> updateProfile(String name, String? contactNumber, String? address) async {
-    state = const AsyncValue.loading();
-    
-    try {
-      final user = await _authService.updateProfile(name, contactNumber, address);
-      state = AsyncValue.data(user);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Change password
-  Future<void> changePassword(String currentPassword, String newPassword) async {
-    try {
-      await _authService.changePassword(currentPassword, newPassword);
-    } catch (e) {
-      rethrow;
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+      rethrow; // Rethrow to handle in UI
     }
   }
   
@@ -71,13 +42,36 @@ class AuthNotifier extends AsyncNotifier<User?> {
     try {
       await _authService.logout();
       state = const AsyncValue.data(null);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
   
-  // Check if user is logged in
-  Future<bool> isLoggedIn() async {
-    return await _authService.isLoggedIn();
+  // Update password
+  Future<bool> updatePassword(String currentPassword, String newPassword) async {
+    try {
+      return await _authService.updatePassword(currentPassword, newPassword);
+    } catch (e) {
+      rethrow; // Rethrow to handle in UI
+    }
+  }
+  
+  // Register new user (admin only)
+  Future<User?> registerUser(Map<String, dynamic> userData) async {
+    try {
+      return await _authService.registerUser(userData);
+    } catch (e) {
+      rethrow; // Rethrow to handle in UI
+    }
+  }
+  
+  // Refresh user data
+  Future<void> refreshUser() async {
+    try {
+      final user = await _authService.getCurrentUser();
+      state = AsyncValue.data(user);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
   }
 }

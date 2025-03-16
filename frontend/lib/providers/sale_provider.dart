@@ -1,214 +1,197 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/sale.dart';
-import '../services/api_service.dart';
-import '../config/app_config.dart';
+import 'package:cylinder_management/models/sale.dart';
+import 'package:cylinder_management/services/api_service.dart';
 
-// Provider for sales list state
-final salesProvider = AsyncNotifierProvider<SalesNotifier, List<Sale>>(() {
-  return SalesNotifier();
+// Provider for sales list
+final salesProvider = StateNotifierProvider<SalesNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return SalesNotifier(ApiService());
 });
 
-// Provider for selected sale
-final selectedSaleProvider = StateProvider<Sale?>((ref) => null);
-
-// Provider for sale filter parameters
-final saleFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'status': null,
-    'customerId': null,
-    'sellerId': null,
-    'deliveryType': null,
-    'paymentStatus': null,
-    'startDate': null,
-    'endDate': null,
-    'page': 1,
-    'limit': AppConfig.defaultPageSize,
-  };
+// Provider for sale details
+final saleDetailsProvider = StateNotifierProvider.family<SaleDetailsNotifier, AsyncValue<Sale?>, int>((ref, id) {
+  return SaleDetailsNotifier(ApiService(), id);
 });
 
-// Provider for sales pagination info
-final salePaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'totalCount': 0,
-    'currentPage': 1,
-    'totalPages': 1,
-  };
+// Provider for sales stats
+final salesStatsProvider = StateNotifierProvider<SalesStatsNotifier, AsyncValue<Map<String, dynamic>?>>((ref) {
+  return SalesStatsNotifier(ApiService());
 });
 
-class SalesNotifier extends AsyncNotifier<List<Sale>> {
-  late ApiService _apiService;
+// Notifier for sales list
+class SalesNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
   
-  @override
-  Future<List<Sale>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
+  SalesNotifier(this._apiService) : super(const AsyncValue.loading()) {
+    fetchSales();
   }
   
-  // Get all sales with optional filters
-  Future<void> getSales({Map<String, dynamic>? filters}) async {
-    state = const AsyncValue.loading();
-    
+  // Fetch all sales with pagination
+  Future<void> fetchSales({Map<String, dynamic>? filters, int page = 1, int limit = 20}) async {
     try {
-      final currentFilters = ref.read(saleFilterProvider);
-      final queryParams = filters ?? currentFilters;
+      state = const AsyncValue.loading();
       
-      // Update filter provider if new filters are provided
-      if (filters != null) {
-        ref.read(saleFilterProvider.notifier).state = {
-          ...currentFilters,
-          ...filters,
-        };
-      }
+      final queryParams = {
+        'page': page,
+        'limit': limit,
+        ...?filters,
+      };
       
-      final response = await _apiService.get(
-        AppConfig.salesEndpoint,
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/sales',
+        (data) => {
+          'sales': (data['sales'] as List).map((item) => Sale.fromJson(item)).toList(),
+          'pagination': data['pagination'],
+        },
         queryParams: queryParams,
       );
       
-      final List<Sale> sales = (response['sales'] as List)
-          .map((saleData) => Sale.fromJson(saleData))
-          .toList();
-      
-      // Update pagination info
-      ref.read(salePaginationProvider.notifier).state = {
-        'totalCount': response['totalCount'],
-        'currentPage': response['currentPage'],
-        'totalPages': response['totalPages'],
-      };
-      
-      state = AsyncValue.data(sales);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Get sale by ID
-  Future<Sale> getSaleById(int id) async {
-    try {
-      final response = await _apiService.get('${AppConfig.salesEndpoint}/$id');
-      return Sale.fromJson(response['sale']);
-    } catch (e) {
-      rethrow;
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch sales',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
   
   // Create new sale
-  Future<Sale> createSale(Sale sale) async {
+  Future<Sale?> createSale(Map<String, dynamic> saleData) async {
     try {
-      final response = await _apiService.post(
-        AppConfig.salesEndpoint,
-        data: sale.toCreateJson(),
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/sales',
+        saleData,
+        (data) => {'sale': Sale.fromJson(data['sale'])},
       );
       
-      final newSale = Sale.fromJson(response['sale']);
-      
-      // Update state with new sale
-      state = AsyncValue.data([...state.value ?? [], newSale]);
-      
-      return newSale;
+      if (response.success && response.data != null) {
+        // Refresh sales list
+        fetchSales();
+        return response.data!['sale'];
+      } else {
+        throw Exception(response.message ?? 'Failed to create sale');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Update sale status
-  Future<Sale> updateSaleStatus(int id, String status, String? customerSignature, DateTime? deliveryDate) async {
+  // Update delivery status
+  Future<Sale?> updateDeliveryStatus(int id, Map<String, dynamic> deliveryData) async {
     try {
-      final sale = Sale(
-        id: id,
-        invoiceNumber: '',
-        saleDate: DateTime.now(),
-        customerId: 0,
-        sellerId: 0,
-        deliveryType: '',
-        status: status,
-        totalAmount: 0,
-        paidAmount: 0,
-        paymentStatus: '',
-        paymentMethod: '',
-        customerSignature: customerSignature,
-        deliveryDate: deliveryDate,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+      final response = await _apiService.patch<Map<String, dynamic>>(
+        '/sales/$id/delivery',
+        deliveryData,
+        (data) => {'sale': Sale.fromJson(data['sale'])},
       );
       
-      final response = await _apiService.put(
-        '${AppConfig.salesEndpoint}/$id/status',
-        data: sale.toUpdateStatusJson(),
-      );
-      
-      final updatedSale = Sale.fromJson(response['sale']);
-      
-      // Update state with updated sale
-      state = AsyncValue.data(
-        state.value?.map((s) => s.id == id ? updatedSale : s).toList() ?? [],
-      );
-      
-      return updatedSale;
+      if (response.success && response.data != null) {
+        // Refresh sales list
+        fetchSales();
+        return response.data!['sale'];
+      } else {
+        throw Exception(response.message ?? 'Failed to update delivery status');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Record cylinder return
-  Future<SaleItem> recordCylinderReturn(int itemId) async {
+  // Update payment status
+  Future<Sale?> updatePaymentStatus(int id, Map<String, dynamic> paymentData) async {
     try {
-      final saleItem = SaleItem(
-        id: itemId,
-        saleId: 0,
-        cylinderId: 0,
-        price: 0,
-        returnedEmpty: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+      final response = await _apiService.patch<Map<String, dynamic>>(
+        '/sales/$id/payment',
+        paymentData,
+        (data) => {'sale': Sale.fromJson(data['sale'])},
       );
       
-      final response = await _apiService.put(
-        '${AppConfig.salesEndpoint}/items/$itemId/return',
-        data: saleItem.toReturnJson(),
-      );
-      
-      return SaleItem.fromJson(response['saleItem']);
+      if (response.success && response.data != null) {
+        // Refresh sales list
+        fetchSales();
+        return response.data!['sale'];
+      } else {
+        throw Exception(response.message ?? 'Failed to update payment status');
+      }
     } catch (e) {
       rethrow;
     }
   }
+}
+
+// Notifier for sale details
+class SaleDetailsNotifier extends StateNotifier<AsyncValue<Sale?>> {
+  final ApiService _apiService;
+  final int saleId;
   
-  // Update sale payment
-  Future<Sale> updateSalePayment(int id, double paidAmount, String paymentMethod, String? notes) async {
+  SaleDetailsNotifier(this._apiService, this.saleId) : super(const AsyncValue.loading()) {
+    if (saleId > 0) {
+      fetchSaleDetails();
+    } else {
+      state = const AsyncValue.data(null);
+    }
+  }
+  
+  // Fetch sale details
+  Future<void> fetchSaleDetails() async {
     try {
-      final sale = Sale(
-        id: id,
-        invoiceNumber: '',
-        saleDate: DateTime.now(),
-        customerId: 0,
-        sellerId: 0,
-        deliveryType: '',
-        status: '',
-        totalAmount: 0,
-        paidAmount: 0,
-        paymentStatus: '',
-        paymentMethod: paymentMethod,
-        notes: notes,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+      state = const AsyncValue.loading();
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/sales/$saleId',
+        (data) => {'sale': Sale.fromJson(data['sale'])},
       );
       
-      final response = await _apiService.put(
-        '${AppConfig.salesEndpoint}/$id/payment',
-        data: sale.toUpdatePaymentJson(paidAmount),
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!['sale']);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch sale details',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+}
+
+// Notifier for sales stats
+class SalesStatsNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>> {
+  final ApiService _apiService;
+  
+  SalesStatsNotifier(this._apiService) : super(const AsyncValue.data(null));
+  
+  // Fetch sales stats
+  Future<void> fetchStats({String period = 'daily', String? startDate, String? endDate}) async {
+    try {
+      state = const AsyncValue.loading();
+      
+      final queryParams = {
+        'period': period,
+        if (startDate != null) 'startDate': startDate,
+        if (endDate != null) 'endDate': endDate,
+      };
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/sales/stats/overview',
+        (data) => data,
+        queryParams: queryParams,
       );
       
-      final updatedSale = Sale.fromJson(response['sale']);
-      
-      // Update state with updated sale
-      state = AsyncValue.data(
-        state.value?.map((s) => s.id == id ? updatedSale : s).toList() ?? [],
-      );
-      
-      return updatedSale;
-    } catch (e) {
-      rethrow;
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch sales statistics',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
 }

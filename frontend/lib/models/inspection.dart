@@ -1,28 +1,34 @@
-import 'user.dart';
-import 'cylinder.dart';
+import 'package:cylinder_management/models/cylinder.dart';
+import 'package:cylinder_management/models/user.dart';
 
 class Inspection {
   final int id;
-  final DateTime inspectionDate;
   final int cylinderId;
   final int inspectedById;
-  final double pressureReading;
-  final bool visualInspection;
-  final String result;
+  final DateTime inspectionDate;
+  final double pressureCheck;
+  final bool visualCheck;
+  final bool valveCheck;
+  final String result; // Approved, Rejected
+  final String? rejectionReason;
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  // Optional nested objects
   final Cylinder? cylinder;
   final User? inspectedBy;
 
   Inspection({
     required this.id,
-    required this.inspectionDate,
     required this.cylinderId,
     required this.inspectedById,
-    required this.pressureReading,
-    required this.visualInspection,
+    required this.inspectionDate,
+    required this.pressureCheck,
+    required this.visualCheck,
+    required this.valveCheck,
     required this.result,
+    this.rejectionReason,
     this.notes,
     required this.createdAt,
     required this.updatedAt,
@@ -30,70 +36,59 @@ class Inspection {
     this.inspectedBy,
   });
 
+  // Factory method to create an Inspection from JSON
   factory Inspection.fromJson(Map<String, dynamic> json) {
     return Inspection(
       id: json['id'],
-      inspectionDate: DateTime.parse(json['inspectionDate']),
       cylinderId: json['cylinderId'],
       inspectedById: json['inspectedById'],
-      pressureReading: json['pressureReading'].toDouble(),
-      visualInspection: json['visualInspection'],
+      inspectionDate: DateTime.parse(json['inspectionDate']),
+      pressureCheck: json['pressureCheck'] is int 
+        ? json['pressureCheck'].toDouble() 
+        : json['pressureCheck'],
+      visualCheck: json['visualCheck'],
+      valveCheck: json['valveCheck'],
       result: json['result'],
+      rejectionReason: json['rejectionReason'],
       notes: json['notes'],
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
-      cylinder: json['Cylinder'] != null ? Cylinder.fromJson(json['Cylinder']) : null,
-      inspectedBy: json['InspectedBy'] != null ? User.fromJson(json['InspectedBy']) : null,
+      createdAt: json['createdAt'] != null 
+        ? DateTime.parse(json['createdAt']) 
+        : DateTime.now(),
+      updatedAt: json['updatedAt'] != null 
+        ? DateTime.parse(json['updatedAt']) 
+        : DateTime.now(),
+      cylinder: json['cylinder'] != null ? Cylinder.fromJson(json['cylinder']) : null,
+      inspectedBy: json['inspectedBy'] != null ? User.fromJson(json['inspectedBy']) : null,
     );
   }
 
+  // Convert Inspection to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'inspectionDate': inspectionDate.toIso8601String(),
       'cylinderId': cylinderId,
       'inspectedById': inspectedById,
-      'pressureReading': pressureReading,
-      'visualInspection': visualInspection,
+      'inspectionDate': inspectionDate.toIso8601String(),
+      'pressureCheck': pressureCheck,
+      'visualCheck': visualCheck,
+      'valveCheck': valveCheck,
       'result': result,
-      'notes': notes,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
-    };
-  }
-
-  // For creating a new inspection
-  Map<String, dynamic> toCreateJson() {
-    return {
-      'cylinderId': cylinderId,
-      'pressureReading': pressureReading,
-      'visualInspection': visualInspection,
-      'result': result,
+      'rejectionReason': rejectionReason,
       'notes': notes,
     };
   }
 
-  // For batch inspection
-  static Map<String, dynamic> toBatchInspectJson({
-    required List<int> cylinderIds,
-    required String result,
-    String? notes,
-  }) {
-    return {
-      'cylinderIds': cylinderIds,
-      'result': result,
-      'notes': notes,
-    };
-  }
-
+  // Create a copy of this Inspection with the given fields replaced
   Inspection copyWith({
     int? id,
-    DateTime? inspectionDate,
     int? cylinderId,
     int? inspectedById,
-    double? pressureReading,
-    bool? visualInspection,
+    DateTime? inspectionDate,
+    double? pressureCheck,
+    bool? visualCheck,
+    bool? valveCheck,
     String? result,
+    String? rejectionReason,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -102,12 +97,14 @@ class Inspection {
   }) {
     return Inspection(
       id: id ?? this.id,
-      inspectionDate: inspectionDate ?? this.inspectionDate,
       cylinderId: cylinderId ?? this.cylinderId,
       inspectedById: inspectedById ?? this.inspectedById,
-      pressureReading: pressureReading ?? this.pressureReading,
-      visualInspection: visualInspection ?? this.visualInspection,
+      inspectionDate: inspectionDate ?? this.inspectionDate,
+      pressureCheck: pressureCheck ?? this.pressureCheck,
+      visualCheck: visualCheck ?? this.visualCheck,
+      valveCheck: valveCheck ?? this.valveCheck,
       result: result ?? this.result,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -115,4 +112,29 @@ class Inspection {
       inspectedBy: inspectedBy ?? this.inspectedBy,
     );
   }
+
+  // Create an Inspection for new Inspection form (for create operation)
+  factory Inspection.empty() {
+    return Inspection(
+      id: 0,
+      cylinderId: 0,
+      inspectedById: 0,
+      inspectionDate: DateTime.now(),
+      pressureCheck: 0.0,
+      visualCheck: false,
+      valveCheck: false,
+      result: 'Approved',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  // Helper method to check if inspection was approved
+  bool get isApproved => result == 'Approved';
+
+  // Helper method to check if inspection was rejected
+  bool get isRejected => result == 'Rejected';
+
+  // Helper method to check if all checks passed
+  bool get allChecksPassed => visualCheck && valveCheck;
 }

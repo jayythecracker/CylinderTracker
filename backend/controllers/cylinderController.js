@@ -1,303 +1,493 @@
-const Cylinder = require('../models/cylinder');
-const Factory = require('../models/factory');
+const { Cylinder, Factory, Filling, Inspection, User } = require('../models');
 const { Op } = require('sequelize');
-const crypto = require('crypto');
+const broadcast = require('../utils/broadcast');
 
-// Generate a unique QR code
-const generateQRCode = () => {
-  return crypto.randomBytes(8).toString('hex');
-};
-
-// Get all cylinders with optional filters
-const getAllCylinders = async (req, res) => {
+/**
+ * Get all cylinders with pagination and filtering
+ */
+exports.getAllCylinders = async (req, res) => {
   try {
+    // Get query parameters for filtering and pagination
     const { 
       status, 
-      gasType, 
+      type, 
       factoryId, 
-      size,
       search,
       page = 1, 
       limit = 20 
     } = req.query;
     
-    // Build filter conditions
-    const whereConditions = { isActive: true };
+    // Build filter object
+    const filter = {};
     
-    if (status) whereConditions.status = status;
-    if (gasType) whereConditions.gasType = gasType;
-    if (factoryId) whereConditions.factoryId = factoryId;
-    if (size) whereConditions.size = size;
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (type) {
+      filter.type = type;
+    }
+    
+    if (factoryId) {
+      filter.factory_id = factoryId;
+    }
     
     if (search) {
-      whereConditions[Op.or] = [
-        { serialNumber: { [Op.iLike]: `%${search}%` } },
-        { qrCode: { [Op.iLike]: `%${search}%` } },
-        { originalNumber: { [Op.iLike]: `%${search}%` } }
+      filter[Op.or] = [
+        { serial_number: { [Op.iLike]: `%${search}%` } }
       ];
     }
     
-    // Pagination
+    // Calculate pagination
     const offset = (page - 1) * limit;
     
+    // Find cylinders with pagination and include factory info
     const { count, rows: cylinders } = await Cylinder.findAndCountAll({
-      where: whereConditions,
-      include: [{ model: Factory }],
-      order: [['updatedAt', 'DESC']],
+      where: filter,
+      include: [
+        { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+      ],
+      order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
     
-    res.status(200).json({
-      cylinders,
-      totalCount: count,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+    // Calculate total pages
+    const totalPages = Math.ceil(count / limit);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        cylinders,
+        pagination: {
+          total: count,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages
+        }
+      }
     });
   } catch (error) {
     console.error('Get all cylinders error:', error);
-    res.status(500).json({ message: 'Server error while fetching cylinders' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving cylinders',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Get cylinder by ID
-const getCylinderById = async (req, res) => {
+/**
+ * Get cylinder by ID or QR code
+ */
+exports.getCylinder = async (req, res) => {
   try {
-    const cylinderId = req.params.id;
+    const { id } = req.params;
+    const { qrCode } = req.query;
     
-    const cylinder = await Cylinder.findOne({
-      where: { id: cylinderId, isActive: true },
-      include: [{ model: Factory }]
-    });
+    let cylinder;
     
-    if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
+    // Find by QR code if provided, otherwise by ID
+    if (qrCode) {
+      cylinder = await Cylinder.findOne({
+        where: { qr_code: qrCode },
+        include: [
+          { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+        ]
+      });
+    } else {
+      cylinder = await Cylinder.findByPk(id, {
+        include: [
+          { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+        ]
+      });
     }
     
-    res.status(200).json({ cylinder });
-  } catch (error) {
-    console.error('Get cylinder by ID error:', error);
-    res.status(500).json({ message: 'Server error while fetching cylinder' });
-  }
-};
-
-// Get cylinder by QR code
-const getCylinderByQRCode = async (req, res) => {
-  try {
-    const { qrCode } = req.params;
-    
-    const cylinder = await Cylinder.findOne({
-      where: { qrCode, isActive: true },
-      include: [{ model: Factory }]
-    });
-    
     if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
     }
     
-    res.status(200).json({ cylinder });
+    // Get last filling information
+    const lastFilling = await Filling.findOne({
+      where: { cylinder_id: cylinder.id },
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Get last inspection information
+    const lastInspection = await Inspection.findOne({
+      where: { cylinder_id: cylinder.id },
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        cylinder,
+        lastFilling,
+        lastInspection
+      }
+    });
   } catch (error) {
-    console.error('Get cylinder by QR error:', error);
-    res.status(500).json({ message: 'Server error while fetching cylinder' });
+    console.error('Get cylinder error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving cylinder',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Create new cylinder
-const createCylinder = async (req, res) => {
+/**
+ * Create new cylinder
+ */
+exports.createCylinder = async (req, res) => {
   try {
     const { 
       serialNumber, 
       size, 
+      type, 
       importDate, 
       productionDate, 
-      originalNumber,
-      workingPressure,
-      designPressure,
-      gasType,
-      factoryId
+      originalNumber, 
+      workingPressure, 
+      designPressure, 
+      factoryId,
+      notes
     } = req.body;
     
-    // Validate required fields
-    if (!serialNumber || !size || !productionDate || !workingPressure || !designPressure || !gasType || !factoryId) {
-      return res.status(400).json({ 
-        message: 'Serial number, size, production date, working pressure, design pressure, gas type, and factory ID are required' 
+    // Validate input
+    if (!serialNumber || !size || !type || !productionDate || !workingPressure || !designPressure || !factoryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Serial number, size, type, production date, working pressure, design pressure, and factory ID are required'
       });
     }
     
     // Check if factory exists
     const factory = await Factory.findByPk(factoryId);
+    
     if (!factory) {
-      return res.status(404).json({ message: 'Factory not found' });
+      return res.status(400).json({
+        success: false,
+        message: 'Factory not found'
+      });
     }
     
-    // Check if serial number is unique
-    const existingCylinder = await Cylinder.findOne({ where: { serialNumber } });
-    if (existingCylinder) {
-      return res.status(409).json({ message: 'Cylinder with this serial number already exists' });
-    }
-    
-    // Generate QR code
-    const qrCode = generateQRCode();
-    
-    // Create new cylinder
-    const newCylinder = await Cylinder.create({
-      serialNumber,
-      qrCode,
-      size,
-      importDate,
-      productionDate,
-      originalNumber,
-      workingPressure,
-      designPressure,
-      gasType,
-      factoryId,
-      status: 'Empty'
+    // Check if cylinder with same serial number already exists
+    const existingCylinder = await Cylinder.findOne({
+      where: { serial_number: serialNumber }
     });
     
+    if (existingCylinder) {
+      return res.status(400).json({
+        success: false,
+        message: 'A cylinder with this serial number already exists'
+      });
+    }
+    
+    // Create new cylinder
+    const cylinder = await Cylinder.create({
+      serial_number: serialNumber,
+      size,
+      type,
+      import_date: importDate || null,
+      production_date: productionDate,
+      original_number: originalNumber || null,
+      working_pressure: workingPressure,
+      design_pressure: designPressure,
+      factory_id: factoryId,
+      notes: notes || null
+    });
+    
+    // Get factory details for response
+    const cylWithFactory = await Cylinder.findByPk(cylinder.id, {
+      include: [
+        { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+      ]
+    });
+    
+    // Broadcast cylinder creation
+    broadcast.cylinderCreated(cylWithFactory);
+    
+    // Send response
     res.status(201).json({
-      message: 'Cylinder created successfully',
-      cylinder: newCylinder
+      success: true,
+      data: { cylinder: cylWithFactory }
     });
   } catch (error) {
     console.error('Create cylinder error:', error);
-    res.status(500).json({ message: 'Server error while creating cylinder' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while creating cylinder',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Update cylinder
-const updateCylinder = async (req, res) => {
+/**
+ * Update cylinder
+ */
+exports.updateCylinder = async (req, res) => {
   try {
-    const cylinderId = req.params.id;
+    const { id } = req.params;
     const { 
       serialNumber, 
       size, 
+      type, 
       importDate, 
       productionDate, 
-      originalNumber,
-      workingPressure,
-      designPressure,
-      gasType,
+      originalNumber, 
+      workingPressure, 
+      designPressure, 
+      status,
       factoryId,
-      status
+      notes
     } = req.body;
     
-    const cylinder = await Cylinder.findOne({
-      where: { id: cylinderId, isActive: true }
-    });
+    // Find cylinder
+    const cylinder = await Cylinder.findByPk(id);
     
     if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
     }
     
-    // Check if serial number is unique if changing
-    if (serialNumber && serialNumber !== cylinder.serialNumber) {
-      const existingCylinder = await Cylinder.findOne({ where: { serialNumber } });
+    // Check if new serial number is already in use by another cylinder
+    if (serialNumber && serialNumber !== cylinder.serial_number) {
+      const existingCylinder = await Cylinder.findOne({
+        where: { 
+          serial_number: serialNumber,
+          id: { [Op.ne]: id }
+        }
+      });
+      
       if (existingCylinder) {
-        return res.status(409).json({ message: 'Cylinder with this serial number already exists' });
+        return res.status(400).json({
+          success: false,
+          message: 'A cylinder with this serial number already exists'
+        });
       }
-      cylinder.serialNumber = serialNumber;
     }
     
-    // Check if factory exists if changing
-    if (factoryId && factoryId !== cylinder.factoryId) {
+    // If factory ID is provided, check if factory exists
+    if (factoryId && factoryId !== cylinder.factory_id) {
       const factory = await Factory.findByPk(factoryId);
+      
       if (!factory) {
-        return res.status(404).json({ message: 'Factory not found' });
+        return res.status(400).json({
+          success: false,
+          message: 'Factory not found'
+        });
       }
-      cylinder.factoryId = factoryId;
     }
     
-    // Update fields if provided
-    if (size) cylinder.size = size;
-    if (importDate !== undefined) cylinder.importDate = importDate;
-    if (productionDate) cylinder.productionDate = productionDate;
-    if (originalNumber !== undefined) cylinder.originalNumber = originalNumber;
-    if (workingPressure) cylinder.workingPressure = workingPressure;
-    if (designPressure) cylinder.designPressure = designPressure;
-    if (gasType) cylinder.gasType = gasType;
-    if (status) cylinder.status = status;
+    // Update cylinder fields
+    await cylinder.update({
+      serial_number: serialNumber || cylinder.serial_number,
+      size: size || cylinder.size,
+      type: type || cylinder.type,
+      import_date: importDate !== undefined ? importDate : cylinder.import_date,
+      production_date: productionDate || cylinder.production_date,
+      original_number: originalNumber !== undefined ? originalNumber : cylinder.original_number,
+      working_pressure: workingPressure || cylinder.working_pressure,
+      design_pressure: designPressure || cylinder.design_pressure,
+      status: status || cylinder.status,
+      factory_id: factoryId || cylinder.factory_id,
+      notes: notes !== undefined ? notes : cylinder.notes
+    });
     
-    await cylinder.save();
+    // Get updated cylinder with factory details
+    const updatedCylinder = await Cylinder.findByPk(id, {
+      include: [
+        { model: Factory, as: 'factory', attributes: ['id', 'name'] }
+      ]
+    });
     
-    res.status(200).json({
-      message: 'Cylinder updated successfully',
-      cylinder
+    // Broadcast cylinder update
+    broadcast.cylinderUpdated(updatedCylinder);
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { cylinder: updatedCylinder }
     });
   } catch (error) {
     console.error('Update cylinder error:', error);
-    res.status(500).json({ message: 'Server error while updating cylinder' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating cylinder',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-// Delete cylinder (soft delete)
-const deleteCylinder = async (req, res) => {
+/**
+ * Delete cylinder
+ */
+exports.deleteCylinder = async (req, res) => {
   try {
-    const cylinderId = req.params.id;
+    const { id } = req.params;
     
-    const cylinder = await Cylinder.findByPk(cylinderId);
+    // Find cylinder
+    const cylinder = await Cylinder.findByPk(id);
+    
     if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
     }
     
-    // Soft delete
-    cylinder.isActive = false;
-    await cylinder.save();
-    
-    res.status(200).json({ message: 'Cylinder deleted successfully' });
-  } catch (error) {
-    console.error('Delete cylinder error:', error);
-    res.status(500).json({ message: 'Server error while deleting cylinder' });
-  }
-};
-
-// Update cylinder status
-const updateCylinderStatus = async (req, res) => {
-  try {
-    const cylinderId = req.params.id;
-    const { status } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({ message: 'Status is required' });
-    }
-    
-    const cylinder = await Cylinder.findOne({
-      where: { id: cylinderId, isActive: true }
+    // Check if cylinder has fillings
+    const fillingCount = await Filling.count({
+      where: { cylinder_id: id }
     });
     
+    if (fillingCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete cylinder with ${fillingCount} filling records. Consider updating its status instead.`
+      });
+    }
+    
+    // Store the ID before deleting (for broadcasting)
+    const cylinderId = cylinder.id;
+    
+    // Delete cylinder
+    await cylinder.destroy();
+    
+    // Broadcast cylinder deletion
+    broadcast.cylinderDeleted(cylinderId);
+    
+    // Send response
+    res.json({
+      success: true,
+      message: 'Cylinder deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete cylinder error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while deleting cylinder',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
+};
+
+/**
+ * Update cylinder status (e.g., for maintenance)
+ */
+exports.updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    
+    // Validate input
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+    
+    // Find cylinder
+    const cylinder = await Cylinder.findByPk(id);
+    
     if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
     }
     
-    cylinder.status = status;
+    // Update status
+    await cylinder.update({
+      status,
+      notes: notes !== undefined ? notes : cylinder.notes
+    });
     
-    // If marked as filled, update last filled date
-    if (status === 'Full') {
-      cylinder.lastFilledDate = new Date();
-    }
+    // Broadcast status update
+    broadcast.cylinderStatusUpdated({
+      id: cylinder.id,
+      status: status,
+      notes: cylinder.notes
+    });
     
-    // If marked as inspected, update last inspection date
-    if (status === 'Empty' || status === 'Full') {
-      cylinder.lastInspectionDate = new Date();
-    }
-    
-    await cylinder.save();
-    
-    res.status(200).json({
-      message: 'Cylinder status updated successfully',
-      cylinder
+    // Send response
+    res.json({
+      success: true,
+      data: { cylinder }
     });
   } catch (error) {
     console.error('Update cylinder status error:', error);
-    res.status(500).json({ message: 'Server error while updating cylinder status' });
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating cylinder status',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
   }
 };
 
-module.exports = {
-  getAllCylinders,
-  getCylinderById,
-  getCylinderByQRCode,
-  createCylinder,
-  updateCylinder,
-  deleteCylinder,
-  updateCylinderStatus
+/**
+ * Get cylinder history (fillings and inspections)
+ */
+exports.getCylinderHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Find cylinder
+    const cylinder = await Cylinder.findByPk(id);
+    
+    if (!cylinder) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cylinder not found'
+      });
+    }
+    
+    // Get filling history
+    const fillings = await Filling.findAll({
+      where: { cylinder_id: id },
+      include: [
+        { model: User, as: 'startedBy', attributes: ['id', 'name'] },
+        { model: User, as: 'endedBy', attributes: ['id', 'name'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Get inspection history
+    const inspections = await Inspection.findAll({
+      where: { cylinder_id: id },
+      include: [
+        { model: User, as: 'inspectedBy', attributes: ['id', 'name'] }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Send response
+    res.json({
+      success: true,
+      data: { 
+        cylinder,
+        history: {
+          fillings,
+          inspections
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get cylinder history error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while retrieving cylinder history',
+      error: process.env.NODE_ENV === 'production' ? undefined : error.message
+    });
+  }
 };

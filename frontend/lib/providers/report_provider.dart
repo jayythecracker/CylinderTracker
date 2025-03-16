@@ -1,121 +1,212 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 
-// Report notifier class
-class ReportNotifier extends StateNotifier<bool> {
-  final ApiService _apiService;
+class ReportData {
+  final Map<String, dynamic> data;
+  final bool isLoading;
+  final String? error;
 
-  ReportNotifier(this._apiService) : super(false);
+  ReportData({
+    required this.data,
+    this.isLoading = false,
+    this.error,
+  });
 
-  // Get daily sales report
-  Future<Map<String, dynamic>> getDailySalesReport({String? date}) async {
-    try {
-      state = true;
-
-      final response = await _apiService.get(
-        'reports/sales/daily',
-        queryParameters: {
-          if (date != null) 'date': date,
-        },
-      );
-
-      state = false;
-      return response;
-    } catch (e) {
-      state = false;
-      throw Exception('Failed to load daily sales report: ${e.toString()}');
-    }
-  }
-
-  // Get monthly sales report
-  Future<Map<String, dynamic>> getMonthlySalesReport({int? year, int? month}) async {
-    try {
-      state = true;
-
-      final response = await _apiService.get(
-        'reports/sales/monthly',
-        queryParameters: {
-          if (year != null) 'year': year.toString(),
-          if (month != null) 'month': month.toString(),
-        },
-      );
-
-      state = false;
-      return response;
-    } catch (e) {
-      state = false;
-      throw Exception('Failed to load monthly sales report: ${e.toString()}');
-    }
-  }
-
-  // Get cylinder status report
-  Future<Map<String, dynamic>> getCylinderStatusReport() async {
-    try {
-      state = true;
-
-      final response = await _apiService.get('reports/cylinders/status');
-
-      state = false;
-      return response;
-    } catch (e) {
-      state = false;
-      throw Exception('Failed to load cylinder status report: ${e.toString()}');
-    }
-  }
-
-  // Get filling activity report
-  Future<Map<String, dynamic>> getFillingActivityReport({
-    String? startDate,
-    String? endDate,
-  }) async {
-    try {
-      state = true;
-
-      final response = await _apiService.get(
-        'reports/filling/activity',
-        queryParameters: {
-          if (startDate != null) 'startDate': startDate,
-          if (endDate != null) 'endDate': endDate,
-        },
-      );
-
-      state = false;
-      return response;
-    } catch (e) {
-      state = false;
-      throw Exception('Failed to load filling activity report: ${e.toString()}');
-    }
-  }
-
-  // Get customer activity report
-  Future<Map<String, dynamic>> getCustomerActivityReport({
-    required int customerId,
-    String? startDate,
-    String? endDate,
-  }) async {
-    try {
-      state = true;
-
-      final response = await _apiService.get(
-        'reports/customers/activity',
-        queryParameters: {
-          'customerId': customerId.toString(),
-          if (startDate != null) 'startDate': startDate,
-          if (endDate != null) 'endDate': endDate,
-        },
-      );
-
-      state = false;
-      return response;
-    } catch (e) {
-      state = false;
-      throw Exception('Failed to load customer activity report: ${e.toString()}');
-    }
+  ReportData copyWith({
+    Map<String, dynamic>? data,
+    bool? isLoading,
+    String? error,
+  }) {
+    return ReportData(
+      data: data ?? this.data,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
   }
 }
 
-// Report provider
-final reportProvider = StateNotifierProvider<ReportNotifier, bool>((ref) {
+class ReportNotifier extends StateNotifier<Map<String, ReportData>> {
+  final ApiService _apiService;
+
+  ReportNotifier(this._apiService) : super({
+    'cylinderStatus': ReportData(data: {}),
+    'filling': ReportData(data: {}),
+    'inspection': ReportData(data: {}),
+    'delivery': ReportData(data: {}),
+    'customerDelivery': ReportData(data: {}),
+    'maintenance': ReportData(data: {}),
+  });
+
+  Future<void> getCylinderStatusReport() async {
+    state = {
+      ...state,
+      'cylinderStatus': state['cylinderStatus']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getCylinderStatusReport();
+      state = {
+        ...state,
+        'cylinderStatus': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'cylinderStatus': state['cylinderStatus']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> getFillingReport({String? startDate, String? endDate}) async {
+    state = {
+      ...state,
+      'filling': state['filling']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getFillingReport(startDate: startDate, endDate: endDate);
+      state = {
+        ...state,
+        'filling': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'filling': state['filling']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> getInspectionReport({String? startDate, String? endDate}) async {
+    state = {
+      ...state,
+      'inspection': state['inspection']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getInspectionReport(startDate: startDate, endDate: endDate);
+      state = {
+        ...state,
+        'inspection': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'inspection': state['inspection']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> getDeliveryReport({String? startDate, String? endDate}) async {
+    state = {
+      ...state,
+      'delivery': state['delivery']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getDeliveryReport(startDate: startDate, endDate: endDate);
+      state = {
+        ...state,
+        'delivery': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'delivery': state['delivery']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> getCustomerDeliveryReport({String? startDate, String? endDate}) async {
+    state = {
+      ...state,
+      'customerDelivery': state['customerDelivery']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getCustomerDeliveryReport(startDate: startDate, endDate: endDate);
+      state = {
+        ...state,
+        'customerDelivery': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'customerDelivery': state['customerDelivery']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  Future<void> getMaintenanceReport({String? startDate, String? endDate}) async {
+    state = {
+      ...state,
+      'maintenance': state['maintenance']!.copyWith(isLoading: true, error: null),
+    };
+
+    try {
+      final report = await _apiService.getMaintenanceReport(startDate: startDate, endDate: endDate);
+      state = {
+        ...state,
+        'maintenance': ReportData(
+          data: report,
+          isLoading: false,
+        ),
+      };
+    } catch (e) {
+      state = {
+        ...state,
+        'maintenance': state['maintenance']!.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        ),
+      };
+    }
+  }
+
+  // Load all reports at once
+  Future<void> loadAllReports({String? startDate, String? endDate}) async {
+    await Future.wait([
+      getCylinderStatusReport(),
+      getFillingReport(startDate: startDate, endDate: endDate),
+      getInspectionReport(startDate: startDate, endDate: endDate),
+      getDeliveryReport(startDate: startDate, endDate: endDate),
+      getCustomerDeliveryReport(startDate: startDate, endDate: endDate),
+      getMaintenanceReport(startDate: startDate, endDate: endDate),
+    ]);
+  }
+}
+
+final reportProvider = StateNotifierProvider<ReportNotifier, Map<String, ReportData>>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   return ReportNotifier(apiService);
 });

@@ -1,6 +1,6 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const { Factory } = require('./Factory');
+const sequelize = require('../config/db');
+// Import will be done in index.js
 
 const CYLINDER_STATUSES = {
   EMPTY: 'empty',
@@ -98,12 +98,11 @@ const Cylinder = sequelize.define('Cylinder', {
   timestamps: true
 });
 
-// Define relationships
-Cylinder.belongsTo(Factory, { foreignKey: 'factoryId', as: 'factory' });
-Factory.hasMany(Cylinder, { foreignKey: 'factoryId', as: 'cylinders' });
+// Relationships will be defined in index.js
 
-module.exports = {
-  Cylinder,
-  CYLINDER_STATUSES,
-  CYLINDER_TYPES
+module.exports = (sequelize, DataTypes) => {
+  // Add constants to the model for access elsewhere
+  Cylinder.CYLINDER_STATUSES = CYLINDER_STATUSES;
+  Cylinder.CYLINDER_TYPES = CYLINDER_TYPES;
+  return Cylinder;
 };

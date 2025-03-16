@@ -1,247 +1,203 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/filling.dart';
-import '../services/api_service.dart';
-import '../config/app_config.dart';
+import 'package:cylinder_management/models/filling.dart';
+import 'package:cylinder_management/services/api_service.dart';
 
-// Provider for filling lines list state
-final fillingLinesProvider = AsyncNotifierProvider<FillingLinesNotifier, List<FillingLine>>(() {
-  return FillingLinesNotifier();
+// Provider for fillings list
+final fillingsProvider = StateNotifierProvider<FillingsNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return FillingsNotifier(ApiService());
 });
 
-// Provider for selected filling line
-final selectedFillingLineProvider = StateProvider<FillingLine?>((ref) => null);
-
-// Provider for filling batches list state
-final fillingBatchesProvider = AsyncNotifierProvider<FillingBatchesNotifier, List<FillingBatch>>(() {
-  return FillingBatchesNotifier();
+// Provider for filling details
+final fillingDetailsProvider = StateNotifierProvider.family<FillingDetailsNotifier, AsyncValue<Filling?>, int>((ref, id) {
+  return FillingDetailsNotifier(ApiService(), id);
 });
 
-// Provider for selected filling batch
-final selectedFillingBatchProvider = StateProvider<FillingBatch?>((ref) => null);
-
-// Provider for filling batch filter parameters
-final fillingBatchFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'status': null,
-    'fillingLineId': null,
-    'startDate': null,
-    'endDate': null,
-    'page': 1,
-    'limit': AppConfig.defaultPageSize,
-  };
+// Provider for active filling lines
+final activeFillingLinesProvider = StateNotifierProvider<ActiveFillingLinesNotifier, AsyncValue<Map<String, dynamic>>>((ref) {
+  return ActiveFillingLinesNotifier(ApiService());
 });
 
-// Provider for filling batches pagination info
-final fillingBatchPaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
-  return {
-    'totalCount': 0,
-    'currentPage': 1,
-    'totalPages': 1,
-  };
+// Provider for filling stats
+final fillingStatsProvider = StateNotifierProvider<FillingStatsNotifier, AsyncValue<Map<String, dynamic>?>>((ref) {
+  return FillingStatsNotifier(ApiService());
 });
 
-class FillingLinesNotifier extends AsyncNotifier<List<FillingLine>> {
-  late ApiService _apiService;
+// Notifier for fillings list
+class FillingsNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
   
-  @override
-  Future<List<FillingLine>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
-  }
+  FillingsNotifier(this._apiService) : super(const AsyncValue.loading());
   
-  // Get all filling lines
-  Future<void> getFillingLines() async {
-    state = const AsyncValue.loading();
-    
+  // Fetch all fillings with pagination
+  Future<void> fetchFillings({Map<String, dynamic>? filters, int page = 1, int limit = 20}) async {
     try {
-      final response = await _apiService.get(AppConfig.fillingLinesEndpoint);
-      final List<FillingLine> fillingLines = (response['fillingLines'] as List)
-          .map((lineData) => FillingLine.fromJson(lineData))
-          .toList();
+      state = const AsyncValue.loading();
       
-      state = AsyncValue.data(fillingLines);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
-  }
-  
-  // Get filling line by ID
-  Future<FillingLine> getFillingLineById(int id) async {
-    try {
-      final response = await _apiService.get('${AppConfig.fillingLinesEndpoint}/$id');
-      return FillingLine.fromJson(response['fillingLine']);
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Create filling line
-  Future<FillingLine> createFillingLine(FillingLine fillingLine) async {
-    try {
-      final response = await _apiService.post(
-        AppConfig.fillingLinesEndpoint,
-        data: fillingLine.toCreateJson(),
-      );
+      final queryParams = {
+        'page': page,
+        'limit': limit,
+        ...?filters,
+      };
       
-      final newFillingLine = FillingLine.fromJson(response['fillingLine']);
-      
-      // Update state with new filling line
-      state = AsyncValue.data([...state.value ?? [], newFillingLine]);
-      
-      return newFillingLine;
-    } catch (e) {
-      rethrow;
-    }
-  }
-  
-  // Update filling line
-  Future<FillingLine> updateFillingLine(int id, FillingLine updatedLine) async {
-    try {
-      final response = await _apiService.put(
-        '${AppConfig.fillingLinesEndpoint}/$id',
-        data: {
-          'name': updatedLine.name,
-          'capacity': updatedLine.capacity,
-          'gasType': updatedLine.gasType,
-          'status': updatedLine.status,
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/fillings',
+        (data) => {
+          'fillings': (data['fillings'] as List).map((item) => Filling.fromJson(item)).toList(),
+          'pagination': data['pagination'],
         },
+        queryParams: queryParams,
       );
       
-      final fillingLine = FillingLine.fromJson(response['fillingLine']);
-      
-      // Update state with updated filling line
-      state = AsyncValue.data(
-        state.value?.map((line) => line.id == id ? fillingLine : line).toList() ?? [],
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch fillings',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+    }
+  }
+  
+  // Start filling process
+  Future<Filling?> startFilling(Map<String, dynamic> fillingData) async {
+    try {
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/fillings',
+        fillingData,
+        (data) => {'filling': Filling.fromJson(data['filling'])},
       );
       
-      return fillingLine;
+      if (response.success && response.data != null) {
+        // Refresh fillings list
+        fetchFillings();
+        return response.data!['filling'];
+      } else {
+        throw Exception(response.message ?? 'Failed to start filling process');
+      }
     } catch (e) {
       rethrow;
     }
   }
   
-  // Delete filling line
-  Future<void> deleteFillingLine(int id) async {
+  // Complete filling process
+  Future<Filling?> completeFilling(int id, Map<String, dynamic> fillingData) async {
     try {
-      await _apiService.delete('${AppConfig.fillingLinesEndpoint}/$id');
-      
-      // Update state by removing deleted filling line
-      state = AsyncValue.data(
-        state.value?.where((line) => line.id != id).toList() ?? [],
+      final response = await _apiService.put<Map<String, dynamic>>(
+        '/fillings/$id',
+        fillingData,
+        (data) => {'filling': Filling.fromJson(data['filling'])},
       );
+      
+      if (response.success && response.data != null) {
+        // Refresh fillings list
+        fetchFillings();
+        return response.data!['filling'];
+      } else {
+        throw Exception(response.message ?? 'Failed to complete filling process');
+      }
     } catch (e) {
       rethrow;
     }
   }
 }
 
-class FillingBatchesNotifier extends AsyncNotifier<List<FillingBatch>> {
-  late ApiService _apiService;
+// Notifier for filling details
+class FillingDetailsNotifier extends StateNotifier<AsyncValue<Filling?>> {
+  final ApiService _apiService;
+  final int fillingId;
   
-  @override
-  Future<List<FillingBatch>> build() async {
-    _apiService = ref.read(apiServiceProvider);
-    return [];
+  FillingDetailsNotifier(this._apiService, this.fillingId) : super(const AsyncValue.loading()) {
+    if (fillingId > 0) {
+      fetchFillingDetails();
+    } else {
+      state = const AsyncValue.data(null);
+    }
   }
   
-  // Get all filling batches with optional filters
-  Future<void> getFillingBatches({Map<String, dynamic>? filters}) async {
-    state = const AsyncValue.loading();
-    
+  // Fetch filling details
+  Future<void> fetchFillingDetails() async {
     try {
-      final currentFilters = ref.read(fillingBatchFilterProvider);
-      final queryParams = filters ?? currentFilters;
+      state = const AsyncValue.loading();
       
-      // Update filter provider if new filters are provided
-      if (filters != null) {
-        ref.read(fillingBatchFilterProvider.notifier).state = {
-          ...currentFilters,
-          ...filters,
-        };
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/fillings/$fillingId',
+        (data) => {'filling': Filling.fromJson(data['filling'])},
+      );
+      
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!['filling']);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch filling details',
+          StackTrace.current,
+        );
       }
-      
-      final response = await _apiService.get(
-        AppConfig.fillingBatchesEndpoint,
-        queryParams: queryParams,
-      );
-      
-      final List<FillingBatch> batches = (response['batches'] as List)
-          .map((batchData) => FillingBatch.fromJson(batchData))
-          .toList();
-      
-      // Update pagination info
-      ref.read(fillingBatchPaginationProvider.notifier).state = {
-        'totalCount': response['totalCount'],
-        'currentPage': response['currentPage'],
-        'totalPages': response['totalPages'],
-      };
-      
-      state = AsyncValue.data(batches);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
+}
+
+// Notifier for active filling lines
+class ActiveFillingLinesNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final ApiService _apiService;
   
-  // Get filling batch by ID
-  Future<FillingBatch> getFillingBatchById(int id) async {
+  ActiveFillingLinesNotifier(this._apiService) : super(const AsyncValue.loading());
+  
+  // Fetch active filling lines
+  Future<void> fetchActiveLines() async {
     try {
-      final response = await _apiService.get('${AppConfig.fillingBatchesEndpoint}/$id');
-      return FillingBatch.fromJson(response['batch']);
-    } catch (e) {
-      rethrow;
+      state = const AsyncValue.loading();
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/fillings/lines/active',
+        (data) => data,
+      );
+      
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data!);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch active filling lines',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
+}
+
+// Notifier for filling stats
+class FillingStatsNotifier extends StateNotifier<AsyncValue<Map<String, dynamic>?>> {
+  final ApiService _apiService;
   
-  // Start new filling batch
-  Future<FillingBatch> startFillingBatch(FillingBatch batch) async {
-    try {
-      final response = await _apiService.post(
-        AppConfig.fillingBatchesEndpoint,
-        data: batch.toStartBatchJson(),
-      );
-      
-      final newBatch = FillingBatch.fromJson(response['batch']);
-      
-      // Update state with new batch
-      state = AsyncValue.data([...state.value ?? [], newBatch]);
-      
-      return newBatch;
-    } catch (e) {
-      rethrow;
-    }
-  }
+  FillingStatsNotifier(this._apiService) : super(const AsyncValue.data(null));
   
-  // Complete filling batch
-  Future<FillingBatch> completeFillingBatch(int id, List<FillingDetail> details, String? notes) async {
+  // Fetch filling stats
+  Future<void> fetchStats({String period = 'daily'}) async {
     try {
-      final FillingBatch batch = FillingBatch(
-        id: id,
-        batchNumber: '',
-        startTime: DateTime.now(),
-        status: 'Completed',
-        fillingLineId: 0,
-        startedById: 0,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        notes: notes,
-        details: details,
+      state = const AsyncValue.loading();
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/fillings/stats/overview',
+        (data) => data,
+        queryParams: {'period': period},
       );
       
-      final response = await _apiService.put(
-        '${AppConfig.fillingBatchesEndpoint}/$id/complete',
-        data: batch.toCompleteBatchJson(),
-      );
-      
-      final completedBatch = FillingBatch.fromJson(response['batch']);
-      
-      // Update state with completed batch
-      state = AsyncValue.data(
-        state.value?.map((b) => b.id == id ? completedBatch : b).toList() ?? [],
-      );
-      
-      return completedBatch;
-    } catch (e) {
-      rethrow;
+      if (response.success && response.data != null) {
+        state = AsyncValue.data(response.data);
+      } else {
+        state = AsyncValue.error(
+          response.message ?? 'Failed to fetch filling statistics',
+          StackTrace.current,
+        );
+      }
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
     }
   }
 }
