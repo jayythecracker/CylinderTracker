@@ -1,0 +1,75 @@
+Server running on http://0.0.0.0:5000
+WebSocket server running on ws://0.0.0.0:5000/ws
+172.31.128.39 - - [16/Mar/2025:12:56:32 +0000] "GET / HTTP/1.1" 200 78 "https://a82d0cab-90b8-43d8-b33e-cae7d04c78e7-00-1cdj3kov7uuy2.sisko.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Arck%3A" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+Get all factories error: Error
+    at Query.run (/home/runner/workspace/node_modules/sequelize/lib/dialects/postgres/query.js:50:25)
+    at /home/runner/workspace/node_modules/sequelize/lib/sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async PostgresQueryInterface.select (/home/runner/workspace/node_modules/sequelize/lib/dialects/abstract/query-interface.js:407:12)
+    at async Factory.findAll (/home/runner/workspace/node_modules/sequelize/lib/model.js:1140:21)
+    at async exports.getAllFactories (/home/runner/workspace/backend/controllers/factoryController.js:28:23) {
+  name: 'SequelizeDatabaseError',
+  parent: error: relation "factories" does not exist
+      at Parser.parseErrorMessage (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:283:98)
+      at Parser.handlePacket (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:122:29)
+      at Parser.parse (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:35:38)
+      at TLSSocket.<anonymous> (/home/runner/workspace/node_modules/pg-protocol/dist/index.js:11:42)
+      at TLSSocket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Readable.push (node:internal/streams/readable:392:5)
+      at TLSWrap.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 109,
+    severity: 'ERROR',
+    code: '42P01',
+    detail: undefined,
+    hint: undefined,
+    position: '135',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '1449',
+    routine: 'parserOpenTable',
+    sql: 'SELECT "id", "name", "location", "contact_person", "contact_phone", "email", "active", "description", "created_at", "updated_at" FROM "factories" AS "Factory" ORDER BY "Factory"."name" ASC;',
+    parameters: undefined
+  },
+  original: error: relation "factories" does not exist
+      at Parser.parseErrorMessage (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:283:98)
+      at Parser.handlePacket (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:122:29)
+      at Parser.parse (/home/runner/workspace/node_modules/pg-protocol/dist/parser.js:35:38)
+      at TLSSocket.<anonymous> (/home/runner/workspace/node_modules/pg-protocol/dist/index.js:11:42)
+      at TLSSocket.emit (node:events:518:28)
+      at addChunk (node:internal/streams/readable:561:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+      at Readable.push (node:internal/streams/readable:392:5)
+      at TLSWrap.onStreamRead (node:internal/stream_base_commons:191:23) {
+    length: 109,
+    severity: 'ERROR',
+    code: '42P01',
+    detail: undefined,
+    hint: undefined,
+    position: '135',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'parse_relation.c',
+    line: '1449',
+    routine: 'parserOpenTable',
+    sql: 'SELECT "id", "name", "location", "contact_person", "contact_phone", "email", "active", "description", "created_at", "updated_at" FROM "factories" AS "Factory" ORDER BY "Factory"."name" ASC;',
+    parameters: undefined
+  },
+  sql: 'SELECT "id", "name", "location", "contact_person", "contact_phone", "email", "active", "description", "created_at", "updated_at" FROM "factories" AS "Factory" ORDER BY "Factory"."name" ASC;',
+  parameters: {}
+}
+172.31.128.39 - - [16/Mar/2025:12:56:50 +0000] "GET /api/factories HTTP/1.1" 500 122 "https://a82d0cab-90b8-43d8-b33e-cae7d04c78e7-00-1cdj3kov7uuy2.sisko.replit.dev/__replco/workspace_iframe.html?initialPath=%2Fapi%2Ffactories&id=%3Arck%3A" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
