@@ -1,43 +1,24 @@
 const express = require('express');
-const reportController = require('../controllers/reportController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const reportController = require('../controllers/reportController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Daily sales report (Manager, Admin)
-router.get(
-  '/sales/daily',
-  checkRole([USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  reportController.dailySalesReport
-);
+// Get daily sales report - admin, manager
+router.get('/daily-sales', authorize(['admin', 'manager']), reportController.getDailySalesReport);
 
-// Monthly sales report (Manager, Admin)
-router.get(
-  '/sales/monthly',
-  checkRole([USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  reportController.monthlySalesReport
-);
+// Get monthly sales report - admin, manager
+router.get('/monthly-sales', authorize(['admin', 'manager']), reportController.getMonthlySalesReport);
 
-// Cylinder status report (All roles)
-router.get('/cylinders/status', reportController.cylinderStatusReport);
+// Get cylinder statistics - all authenticated users
+router.get('/cylinder-statistics', reportController.getCylinderStatistics);
 
-// Filling activity report (Manager, Admin, Filler)
-router.get(
-  '/filling/activity',
-  checkRole([USER_ROLES.MANAGER, USER_ROLES.ADMIN, USER_ROLES.FILLER]),
-  reportController.fillingActivityReport
-);
+// Get filling operations report - admin, manager, filler
+router.get('/filling', authorize(['admin', 'manager', 'filler']), reportController.getFillingReport);
 
-// Customer activity report (Manager, Admin, Seller)
-router.get(
-  '/customers/activity',
-  checkRole([USER_ROLES.MANAGER, USER_ROLES.ADMIN, USER_ROLES.SELLER]),
-  reportController.customerActivityReport
-);
+// Get customer activity report - admin, manager, seller
+router.get('/customer-activity', authorize(['admin', 'manager', 'seller']), reportController.getCustomerActivityReport);
 
 module.exports = router;

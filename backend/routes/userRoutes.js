@@ -1,30 +1,41 @@
 const express = require('express');
-const userController = require('../controllers/userController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const userController = require('../controllers/userController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Get all users (Admin, Manager)
-router.get('/', checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]), userController.getAllUsers);
+// Get all users - admin only
+router.get('/', authorize('admin'), userController.getAllUsers);
 
-// Get user by ID (Admin, Manager)
-router.get('/:id', checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]), userController.getUserById);
+// Get user by ID - admin or the user themselves
+router.get('/:id', (req, res, next) => {
+  // Allow users to access their own profile
+  if (req.params.id == req.user.id) {
+    return next();
+  }
+  // Otherwise check for admin privileges
+  authorize('admin')(req, res, next);
+}, userController.getUserById);
 
-// Create user (Admin only)
-router.post('/', checkRole([USER_ROLES.ADMIN]), userController.updateUser);
+// Create new user - admin only
+router.post('/', authorize('admin'), userController.createUser);
 
-// Update user (Admin only)
-router.put('/:id', checkRole([USER_ROLES.ADMIN]), userController.updateUser);
+// Update user - admin or the user themselves
+router.put('/:id', (req, res, next) => {
+  // Allow users to update their own profile
+  if (req.params.id == req.user.id) {
+    return next();
+  }
+  // Otherwise check for admin privileges
+  authorize('admin')(req, res, next);
+}, userController.updateUser);
 
-// Delete user (Admin only)
-router.delete('/:id', checkRole([USER_ROLES.ADMIN]), userController.deleteUser);
+// Reset user password - admin only
+router.put('/:id/reset-password', authorize('admin'), userController.resetPassword);
 
-// Reset password (Admin only)
-router.post('/:id/reset-password', checkRole([USER_ROLES.ADMIN]), userController.resetPassword);
+// Delete user - admin only
+router.delete('/:id', authorize('admin'), userController.deleteUser);
 
 module.exports = router;

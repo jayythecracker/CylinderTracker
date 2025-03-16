@@ -1,388 +1,495 @@
-const { Sale, SaleItem } = require('../models/Sale');
-const { Customer } = require('../models/Customer');
-const { Cylinder } = require('../models/Cylinder');
-const { FillingSession, FillingSessionCylinder } = require('../models/FillingLine');
 const { sequelize } = require('../config/db');
-const { Op } = require('sequelize');
+const { QueryTypes } = require('sequelize');
+const { Sale, SaleItem } = require('../models/sale');
+const { FillingBatch, FillingDetail } = require('../models/filling');
+const Cylinder = require('../models/cylinder');
+const Customer = require('../models/customer');
 
-// Daily sales report
-exports.dailySalesReport = async (req, res) => {
+// Get daily sales report
+const getDailySalesReport = async (req, res) => {
   try {
     const { date } = req.query;
-    let targetDate = date ? new Date(date) : new Date();
+    
+    let reportDate = date ? new Date(date) : new Date();
     
     // Set to start of day
-    targetDate.setHours(0, 0, 0, 0);
-    const nextDay = new Date(targetDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-
-    // Get sales for the target date
+    reportDate.setHours(0, 0, 0, 0);
+    
+    // Set to end of day
+    const endDate = new Date(reportDate);
+    endDate.setHours(23, 59, 59, 999);
+    
+    // Get sales for the day
     const sales = await Sale.findAll({
       where: {
         saleDate: {
-          [Op.gte]: targetDate,
-          [Op.lt]: nextDay
+          [sequelize.Op.between]: [reportDate, endDate]
         }
       },
       include: [
-        {
-          model: Customer,
-          as: 'customer',
-          attributes: ['id', 'name', 'type']
+        { model: Customer, attributes: ['id', 'name', 'type'] },
+        { 
+          model: SaleItem,
+          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
         }
       ]
     });
-
-    // Calculate totals
+    
+    // Calculate total amounts
     const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + parseFloat(sale.paidAmount), 0);
+    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
     const totalOutstanding = totalAmount - totalPaid;
-
-    // Get sales by customer type
-    const salesByCustomerType = {};
+    
+    // Count by payment method
+    const cashSales = sales.filter(sale => sale.paymentMethod === 'Cash').length;
+    const creditSales = sales.filter(sale => sale.paymentMethod === 'Credit').length;
+    
+    // Count by customer type
+    const customerTypeCounts = {};
     sales.forEach(sale => {
-      const customerType = sale.customer.type;
-      if (!salesByCustomerType[customerType]) {
-        salesByCustomerType[customerType] = {
-          count: 0,
-          amount: 0
-        };
-      }
-      salesByCustomerType[customerType].count++;
-      salesByCustomerType[customerType].amount += parseFloat(sale.totalAmount);
+      const type = sale.Customer?.type || 'Unknown';
+      customerTypeCounts[type] = (customerTypeCounts[type] || 0) + 1;
     });
-
+    
+    // Count cylinders by size and type
+    const cylinderCounts = {};
+    sales.forEach(sale => {
+      sale.SaleItems.forEach(item => {
+        const cylinder = item.Cylinder;
+        const key = `${cylinder.size}-${cylinder.gasType}`;
+        cylinderCounts[key] = (cylinderCounts[key] || 0) + 1;
+      });
+    });
+    
     res.status(200).json({
-      date: targetDate.toISOString().split('T')[0],
+      date: reportDate.toISOString().split('T')[0],
       totalSales,
       totalAmount,
       totalPaid,
       totalOutstanding,
-      salesByCustomerType,
+      paymentMethods: {
+        Cash: cashSales,
+        Credit: creditSales
+      },
+      customerTypes: customerTypeCounts,
+      cylinderCounts,
       sales
     });
   } catch (error) {
     console.error('Daily sales report error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while generating daily sales report' });
   }
 };
 
-// Monthly sales report
-exports.monthlySalesReport = async (req, res) => {
+// Get monthly sales report
+const getMonthlySalesReport = async (req, res) => {
   try {
-    const { year, month } = req.query;
-    const currentDate = new Date();
-    const targetYear = year ? parseInt(year) : currentDate.getFullYear();
-    const targetMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
+    const { month, year } = req.query;
     
-    // Create date range for the month
-    const startDate = new Date(targetYear, targetMonth, 1);
-    const endDate = new Date(targetYear, targetMonth + 1, 0);
-    endDate.setHours(23, 59, 59, 999);
-
+    // Default to current month and year if not provided
+    const currentDate = new Date();
+    const reportMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
+    const reportYear = year ? parseInt(year) : currentDate.getFullYear();
+    
+    // Create start and end dates for the month
+    const startDate = new Date(reportYear, reportMonth, 1);
+    const endDate = new Date(reportYear, reportMonth + 1, 0, 23, 59, 59, 999);
+    
     // Get sales for the month
     const sales = await Sale.findAll({
       where: {
         saleDate: {
-          [Op.between]: [startDate, endDate]
+          [sequelize.Op.between]: [startDate, endDate]
         }
       },
       include: [
-        {
-          model: Customer,
-          as: 'customer',
-          attributes: ['id', 'name', 'type']
-        }
+        { model: Customer, attributes: ['id', 'name', 'type'] }
       ]
     });
-
-    // Calculate totals
+    
+    // Calculate total amounts
     const totalSales = sales.length;
-    const totalAmount = sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0);
-    const totalPaid = sales.reduce((sum, sale) => sum + parseFloat(sale.paidAmount), 0);
+    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
     const totalOutstanding = totalAmount - totalPaid;
-
-    // Get daily breakdown
+    
+    // Group by day
     const dailySales = {};
     sales.forEach(sale => {
-      const saleDate = sale.saleDate.toISOString().split('T')[0];
-      if (!dailySales[saleDate]) {
-        dailySales[saleDate] = {
-          count: 0,
-          amount: 0
-        };
-      }
-      dailySales[saleDate].count++;
-      dailySales[saleDate].amount += parseFloat(sale.totalAmount);
+      const day = new Date(sale.saleDate).getDate();
+      dailySales[day] = dailySales[day] || { count: 0, amount: 0 };
+      dailySales[day].count += 1;
+      dailySales[day].amount += sale.totalAmount;
     });
-
-    // Get sales by customer type
+    
+    // Group by customer type
     const salesByCustomerType = {};
     sales.forEach(sale => {
-      const customerType = sale.customer.type;
-      if (!salesByCustomerType[customerType]) {
-        salesByCustomerType[customerType] = {
-          count: 0,
-          amount: 0
-        };
-      }
-      salesByCustomerType[customerType].count++;
-      salesByCustomerType[customerType].amount += parseFloat(sale.totalAmount);
+      const type = sale.Customer?.type || 'Unknown';
+      salesByCustomerType[type] = salesByCustomerType[type] || { count: 0, amount: 0 };
+      salesByCustomerType[type].count += 1;
+      salesByCustomerType[type].amount += sale.totalAmount;
     });
-
+    
+    // Group by payment method
+    const salesByPaymentMethod = {
+      Cash: { count: 0, amount: 0 },
+      Credit: { count: 0, amount: 0 }
+    };
+    
+    sales.forEach(sale => {
+      const method = sale.paymentMethod;
+      salesByPaymentMethod[method].count += 1;
+      salesByPaymentMethod[method].amount += sale.totalAmount;
+    });
+    
+    // Group by payment status
+    const salesByPaymentStatus = {
+      Paid: { count: 0, amount: 0 },
+      Partial: { count: 0, amount: 0 },
+      Unpaid: { count: 0, amount: 0 }
+    };
+    
+    sales.forEach(sale => {
+      const status = sale.paymentStatus;
+      salesByPaymentStatus[status].count += 1;
+      salesByPaymentStatus[status].amount += sale.totalAmount;
+    });
+    
     res.status(200).json({
-      year: targetYear,
-      month: targetMonth + 1,
+      month: reportMonth + 1,
+      year: reportYear,
       totalSales,
       totalAmount,
       totalPaid,
       totalOutstanding,
       dailySales,
-      salesByCustomerType
+      salesByCustomerType,
+      salesByPaymentMethod,
+      salesByPaymentStatus
     });
   } catch (error) {
     console.error('Monthly sales report error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while generating monthly sales report' });
   }
 };
 
-// Cylinder status report
-exports.cylinderStatusReport = async (req, res) => {
+// Get cylinder statistics
+const getCylinderStatistics = async (req, res) => {
   try {
-    // Get cylinder counts by status
-    const statusCounts = await Cylinder.findAll({
-      attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+    // Count cylinders by status
+    const cylindersByStatus = await Cylinder.findAll({
+      attributes: [
+        'status',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: { isActive: true },
       group: ['status']
     });
-
-    // Get cylinder counts by type
-    const typeCounts = await Cylinder.findAll({
-      attributes: ['type', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['type']
+    
+    // Count cylinders by gas type
+    const cylindersByGasType = await Cylinder.findAll({
+      attributes: [
+        'gasType',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: { isActive: true },
+      group: ['gasType']
     });
+    
+    // Count cylinders by size
+    const cylindersBySize = await Cylinder.findAll({
+      attributes: [
+        'size',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
+      ],
+      where: { isActive: true },
+      group: ['size']
+    });
+    
+    // Get cylinders needing inspection (not inspected in last 90 days)
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    
+    const cylindersNeedingInspection = await Cylinder.count({
+      where: {
+        isActive: true,
+        [sequelize.Op.or]: [
+          { lastInspectionDate: null },
+          { lastInspectionDate: { [sequelize.Op.lt]: ninetyDaysAgo } }
+        ]
+      }
+    });
+    
+    // Get cylinders at customer locations
+    const cylindersAtCustomers = await Cylinder.count({
+      where: {
+        isActive: true,
+        currentCustomerId: { [sequelize.Op.not]: null }
+      }
+    });
+    
+    // Get cylinders in error state
+    const cylindersInError = await Cylinder.count({
+      where: {
+        isActive: true,
+        status: 'Error'
+      }
+    });
+    
+    // Get total cylinder count
+    const totalCylinders = await Cylinder.count({
+      where: { isActive: true }
+    });
+    
+    res.status(200).json({
+      totalCylinders,
+      cylindersByStatus: cylindersByStatus.map(item => ({
+        status: item.status,
+        count: parseInt(item.get('count'))
+      })),
+      cylindersByGasType: cylindersByGasType.map(item => ({
+        gasType: item.gasType,
+        count: parseInt(item.get('count'))
+      })),
+      cylindersBySize: cylindersBySize.map(item => ({
+        size: item.size,
+        count: parseInt(item.get('count'))
+      })),
+      cylindersNeedingInspection,
+      cylindersAtCustomers,
+      cylindersInError
+    });
+  } catch (error) {
+    console.error('Cylinder statistics error:', error);
+    res.status(500).json({ message: 'Server error while generating cylinder statistics' });
+  }
+};
 
-    // Get factory distribution
-    const factoryDistribution = await Cylinder.findAll({
-      attributes: ['factoryId', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['factoryId'],
+// Get filling operations report
+const getFillingReport = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    // Default to last 30 days if dates not provided
+    const today = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(today.getDate() - 30);
+    
+    const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
+    const reportEndDate = endDate ? new Date(endDate) : today;
+    
+    // Set end date to end of day
+    reportEndDate.setHours(23, 59, 59, 999);
+    
+    // Get filling batches for the period
+    const fillingBatches = await FillingBatch.findAll({
+      where: {
+        startTime: {
+          [sequelize.Op.between]: [reportStartDate, reportEndDate]
+        }
+      },
       include: [
-        {
-          model: require('../models/Factory').Factory,
-          as: 'factory',
-          attributes: ['id', 'name']
+        { 
+          model: FillingDetail,
+          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
         }
       ]
     });
-
+    
+    // Calculate success and failure rates
+    let totalCylinders = 0;
+    let successfulFills = 0;
+    let failedFills = 0;
+    
+    fillingBatches.forEach(batch => {
+      batch.FillingDetails.forEach(detail => {
+        totalCylinders++;
+        if (detail.status === 'Success') {
+          successfulFills++;
+        } else if (detail.status === 'Failed') {
+          failedFills++;
+        }
+      });
+    });
+    
+    const successRate = totalCylinders > 0 ? (successfulFills / totalCylinders) * 100 : 0;
+    const failureRate = totalCylinders > 0 ? (failedFills / totalCylinders) * 100 : 0;
+    
+    // Group fills by gas type
+    const fillsByGasType = {};
+    fillingBatches.forEach(batch => {
+      batch.FillingDetails.forEach(detail => {
+        const gasType = detail.Cylinder.gasType;
+        fillsByGasType[gasType] = fillsByGasType[gasType] || { total: 0, success: 0, failed: 0 };
+        fillsByGasType[gasType].total++;
+        
+        if (detail.status === 'Success') {
+          fillsByGasType[gasType].success++;
+        } else if (detail.status === 'Failed') {
+          fillsByGasType[gasType].failed++;
+        }
+      });
+    });
+    
+    // Group by day
+    const fillsByDay = {};
+    fillingBatches.forEach(batch => {
+      const day = new Date(batch.startTime).toISOString().split('T')[0];
+      fillsByDay[day] = fillsByDay[day] || { total: 0, success: 0, failed: 0 };
+      
+      batch.FillingDetails.forEach(detail => {
+        fillsByDay[day].total++;
+        
+        if (detail.status === 'Success') {
+          fillsByDay[day].success++;
+        } else if (detail.status === 'Failed') {
+          fillsByDay[day].failed++;
+        }
+      });
+    });
+    
     res.status(200).json({
-      statusCounts,
-      typeCounts,
-      factoryDistribution,
-      totalCylinders: statusCounts.reduce((sum, item) => sum + parseInt(item.dataValues.count), 0)
+      startDate: reportStartDate.toISOString().split('T')[0],
+      endDate: reportEndDate.toISOString().split('T')[0],
+      totalBatches: fillingBatches.length,
+      totalCylinders,
+      successfulFills,
+      failedFills,
+      successRate,
+      failureRate,
+      fillsByGasType,
+      fillsByDay
     });
   } catch (error) {
-    console.error('Cylinder status report error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Filling report error:', error);
+    res.status(500).json({ message: 'Server error while generating filling report' });
   }
 };
 
-// Filling activity report
-exports.fillingActivityReport = async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-
-    let dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter = {
-        startTime: {
-          [Op.between]: [new Date(startDate), new Date(endDate)]
-        }
-      };
-    } else if (startDate) {
-      dateFilter = {
-        startTime: {
-          [Op.gte]: new Date(startDate)
-        }
-      };
-    } else if (endDate) {
-      dateFilter = {
-        startTime: {
-          [Op.lte]: new Date(endDate)
-        }
-      };
-    } else {
-      // Default to last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      dateFilter = {
-        startTime: {
-          [Op.gte]: thirtyDaysAgo
-        }
-      };
-    }
-
-    // Get filling sessions in date range
-    const sessions = await FillingSession.findAll({
-      where: dateFilter,
-      include: [
-        {
-          model: require('../models/FillingLine').FillingLine,
-          as: 'fillingLine'
-        }
-      ],
-      order: [['startTime', 'DESC']]
-    });
-
-    // Get cylinder counts for each session
-    const sessionsWithStats = await Promise.all(sessions.map(async (session) => {
-      const cylinders = await FillingSessionCylinder.findAll({
-        where: { fillingSessionId: session.id },
-        attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        group: ['status']
-      });
-
-      const stats = {
-        total: 0,
-        pending: 0,
-        filling: 0,
-        success: 0,
-        failed: 0
-      };
-
-      cylinders.forEach(cylinder => {
-        const count = parseInt(cylinder.dataValues.count);
-        stats[cylinder.status] = count;
-        stats.total += count;
-      });
-
-      return {
-        ...session.toJSON(),
-        stats
-      };
-    }));
-
-    // Calculate overall statistics
-    const overall = {
-      totalSessions: sessions.length,
-      totalCylinders: 0,
-      successfulFills: 0,
-      failedFills: 0,
-      successRate: 0
-    };
-
-    sessionsWithStats.forEach(session => {
-      overall.totalCylinders += session.stats.total;
-      overall.successfulFills += session.stats.success;
-      overall.failedFills += session.stats.failed;
-    });
-
-    overall.successRate = overall.totalCylinders > 0 
-      ? ((overall.successfulFills / overall.totalCylinders) * 100).toFixed(2) 
-      : 0;
-
-    res.status(200).json({
-      startDate: startDate || 'Last 30 days',
-      endDate: endDate || 'Today',
-      overall,
-      sessions: sessionsWithStats
-    });
-  } catch (error) {
-    console.error('Filling activity report error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Customer activity report
-exports.customerActivityReport = async (req, res) => {
+// Get customer activity report
+const getCustomerActivityReport = async (req, res) => {
   try {
     const { customerId, startDate, endDate } = req.query;
-
-    // Validate customerId
+    
     if (!customerId) {
-      return res.status(400).json({ message: 'Please provide customer ID' });
+      return res.status(400).json({ message: 'Customer ID is required' });
     }
-
-    // Find customer
-    const customer = await Customer.findByPk(customerId);
+    
+    // Check if customer exists
+    const customer = await Customer.findOne({
+      where: { id: customerId, isActive: true }
+    });
+    
     if (!customer) {
       return res.status(404).json({ message: 'Customer not found' });
     }
-
-    let dateFilter = { customerId };
-    if (startDate && endDate) {
-      dateFilter.saleDate = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
-      };
-    } else if (startDate) {
-      dateFilter.saleDate = {
-        [Op.gte]: new Date(startDate)
-      };
-    } else if (endDate) {
-      dateFilter.saleDate = {
-        [Op.lte]: new Date(endDate)
-      };
-    }
-
-    // Get sales for this customer
+    
+    // Default to last 90 days if dates not provided
+    const today = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(today.getDate() - 90);
+    
+    const reportStartDate = startDate ? new Date(startDate) : defaultStartDate;
+    const reportEndDate = endDate ? new Date(endDate) : today;
+    
+    // Set end date to end of day
+    reportEndDate.setHours(23, 59, 59, 999);
+    
+    // Get sales for this customer in the period
     const sales = await Sale.findAll({
-      where: dateFilter,
+      where: {
+        customerId,
+        saleDate: {
+          [sequelize.Op.between]: [reportStartDate, reportEndDate]
+        }
+      },
       include: [
-        {
+        { 
           model: SaleItem,
-          as: 'items',
-          include: [
-            {
-              model: Cylinder,
-              as: 'cylinder',
-              attributes: ['id', 'serialNumber', 'type', 'size']
-            }
-          ]
+          include: [{ model: Cylinder, attributes: ['id', 'serialNumber', 'size', 'gasType'] }]
         }
       ],
       order: [['saleDate', 'DESC']]
     });
-
-    // Calculate statistics
-    const stats = {
-      totalSales: sales.length,
-      totalAmount: sales.reduce((sum, sale) => sum + parseFloat(sale.totalAmount), 0),
-      totalPaid: sales.reduce((sum, sale) => sum + parseFloat(sale.paidAmount), 0),
-      outstandingBalance: customer.balance,
-      cylindersPurchased: 0,
-      cylindersReturned: 0,
-      cylinderTypes: {}
-    };
-
+    
+    // Calculate totals
+    const totalSales = sales.length;
+    const totalAmount = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0);
+    const outstanding = totalAmount - totalPaid;
+    
+    // Count cylinders by type
+    const cylindersByType = {};
+    let totalCylinders = 0;
+    
     sales.forEach(sale => {
-      sale.items.forEach(item => {
-        if (!item.isReturn) {
-          stats.cylindersPurchased++;
-          const type = item.cylinder.type;
-          if (!stats.cylinderTypes[type]) {
-            stats.cylinderTypes[type] = 0;
-          }
-          stats.cylinderTypes[type]++;
-        } else {
-          stats.cylindersReturned++;
-        }
+      sale.SaleItems.forEach(item => {
+        totalCylinders++;
+        const gasType = item.Cylinder.gasType;
+        cylindersByType[gasType] = (cylindersByType[gasType] || 0) + 1;
       });
     });
-
+    
+    // Count cylinders by size
+    const cylindersBySize = {};
+    
+    sales.forEach(sale => {
+      sale.SaleItems.forEach(item => {
+        const size = item.Cylinder.size;
+        cylindersBySize[size] = (cylindersBySize[size] || 0) + 1;
+      });
+    });
+    
+    // Calculate returns
+    const totalReturns = sales.reduce((sum, sale) => {
+      return sum + sale.SaleItems.filter(item => item.returnedEmpty).length;
+    }, 0);
+    
+    const returnRate = totalCylinders > 0 ? (totalReturns / totalCylinders) * 100 : 0;
+    
+    // Get cylinders currently with this customer
+    const cylindersWithCustomer = await Cylinder.findAll({
+      where: {
+        isActive: true,
+        currentCustomerId: customerId
+      },
+      attributes: ['id', 'serialNumber', 'size', 'gasType', 'status', 'lastFilledDate']
+    });
+    
     res.status(200).json({
       customer: {
         id: customer.id,
         name: customer.name,
         type: customer.type,
-        paymentType: customer.paymentType
+        currentCredit: customer.currentCredit,
+        creditLimit: customer.creditLimit
       },
-      startDate: startDate || 'All time',
-      endDate: endDate || 'Today',
-      stats,
+      startDate: reportStartDate.toISOString().split('T')[0],
+      endDate: reportEndDate.toISOString().split('T')[0],
+      totalSales,
+      totalAmount,
+      totalPaid,
+      outstanding,
+      totalCylinders,
+      totalReturns,
+      returnRate,
+      cylindersByType,
+      cylindersBySize,
+      cylindersWithCustomer,
       sales
     });
   } catch (error) {
     console.error('Customer activity report error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while generating customer activity report' });
   }
+};
+
+module.exports = {
+  getDailySalesReport,
+  getMonthlySalesReport,
+  getCylinderStatistics,
+  getFillingReport,
+  getCustomerActivityReport
 };

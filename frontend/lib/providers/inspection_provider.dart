@@ -1,225 +1,162 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/cylinder.dart';
+import '../models/inspection.dart';
 import '../services/api_service.dart';
+import '../config/app_config.dart';
 
-// State class for cylinders under inspection
-class InspectionState {
-  final bool isLoading;
-  final List<dynamic> cylinders; // List of cylinders with filling details
-  final String? errorMessage;
-  final int totalCount;
-  final int currentPage;
-  final int totalPages;
-  final List<int> selectedCylinders; // For batch operations
-
-  const InspectionState({
-    this.isLoading = false,
-    this.cylinders = const [],
-    this.errorMessage,
-    this.totalCount = 0,
-    this.currentPage = 1,
-    this.totalPages = 1,
-    this.selectedCylinders = const [],
-  });
-
-  // Copy with method for immutability
-  InspectionState copyWith({
-    bool? isLoading,
-    List<dynamic>? cylinders,
-    String? errorMessage,
-    int? totalCount,
-    int? currentPage,
-    int? totalPages,
-    List<int>? selectedCylinders,
-  }) {
-    return InspectionState(
-      isLoading: isLoading ?? this.isLoading,
-      cylinders: cylinders ?? this.cylinders,
-      errorMessage: errorMessage,
-      totalCount: totalCount ?? this.totalCount,
-      currentPage: currentPage ?? this.currentPage,
-      totalPages: totalPages ?? this.totalPages,
-      selectedCylinders: selectedCylinders ?? this.selectedCylinders,
-    );
-  }
-}
-
-// Inspection notifier to handle inspection state
-class InspectionNotifier extends StateNotifier<InspectionState> {
-  final ApiService _apiService;
-
-  InspectionNotifier(this._apiService) : super(const InspectionState());
-
-  // Get cylinders for inspection
-  Future<void> getCylindersForInspection({
-    int page = 1,
-    int limit = 20,
-    String? status,
-    String? search,
-  }) async {
-    try {
-      state = state.copyWith(isLoading: true, errorMessage: null);
-
-      final response = await _apiService.get(
-        'inspection/cylinders',
-        queryParameters: {
-          'page': page.toString(),
-          'limit': limit.toString(),
-          if (status != null) 'status': status,
-          if (search != null && search.isNotEmpty) 'search': search,
-        },
-      );
-
-      final List<dynamic> cylinders = response['cylinders'] as List;
-
-      state = state.copyWith(
-        isLoading: false,
-        cylinders: cylinders,
-        totalCount: response['totalCount'] ?? 0,
-        currentPage: response['currentPage'] ?? 1,
-        totalPages: response['totalPages'] ?? 1,
-        selectedCylinders: [], // Clear selection on new data load
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to load cylinders for inspection: ${e.toString()}',
-      );
-    }
-  }
-
-  // Get cylinder inspection details
-  Future<Map<String, dynamic>> getCylinderInspectionDetails(int id) async {
-    try {
-      final response = await _apiService.get('inspection/cylinders/$id');
-      return {
-        'cylinder': Cylinder.fromJson(response['cylinder']),
-        'fillingHistory': response['fillingHistory'],
-      };
-    } catch (e) {
-      throw Exception('Failed to load cylinder inspection details: ${e.toString()}');
-    }
-  }
-
-  // Approve cylinder
-  Future<Cylinder> approveCylinder(int id, {String? notes}) async {
-    try {
-      final response = await _apiService.patch(
-        'inspection/cylinders/$id/approve',
-        data: {
-          if (notes != null) 'notes': notes,
-        },
-      );
-      
-      // Remove approved cylinder from state
-      final updatedCylinders = state.cylinders.where((c) => c['id'] != id).toList();
-      state = state.copyWith(
-        cylinders: updatedCylinders,
-        totalCount: state.totalCount - 1,
-      );
-      
-      return Cylinder.fromJson(response['cylinder']);
-    } catch (e) {
-      throw Exception('Failed to approve cylinder: ${e.toString()}');
-    }
-  }
-
-  // Reject cylinder
-  Future<Cylinder> rejectCylinder(int id, String reason, {String? notes}) async {
-    try {
-      final response = await _apiService.patch(
-        'inspection/cylinders/$id/reject',
-        data: {
-          'reason': reason,
-          if (notes != null) 'notes': notes,
-        },
-      );
-      
-      // Remove rejected cylinder from state
-      final updatedCylinders = state.cylinders.where((c) => c['id'] != id).toList();
-      state = state.copyWith(
-        cylinders: updatedCylinders,
-        totalCount: state.totalCount - 1,
-      );
-      
-      return Cylinder.fromJson(response['cylinder']);
-    } catch (e) {
-      throw Exception('Failed to reject cylinder: ${e.toString()}');
-    }
-  }
-
-  // Toggle cylinder selection for batch operations
-  void toggleCylinderSelection(int id) {
-    final selectedCylinders = [...state.selectedCylinders];
-    
-    if (selectedCylinders.contains(id)) {
-      selectedCylinders.remove(id);
-    } else {
-      selectedCylinders.add(id);
-    }
-    
-    state = state.copyWith(selectedCylinders: selectedCylinders);
-  }
-
-  // Clear cylinder selection
-  void clearSelection() {
-    state = state.copyWith(selectedCylinders: []);
-  }
-
-  // Select all displayed cylinders
-  void selectAllDisplayed() {
-    final cylinderIds = state.cylinders.map((c) => c['id'] as int).toList();
-    state = state.copyWith(selectedCylinders: cylinderIds);
-  }
-
-  // Batch approve cylinders
-  Future<void> batchApproveCylinders({String? notes}) async {
-    try {
-      if (state.selectedCylinders.isEmpty) {
-        throw Exception('No cylinders selected');
-      }
-      
-      await _apiService.post(
-        'inspection/cylinders/batch-approve',
-        data: {
-          'cylinderIds': state.selectedCylinders,
-          if (notes != null) 'notes': notes,
-        },
-      );
-      
-      // Refresh data after batch approval
-      await getCylindersForInspection(page: state.currentPage);
-    } catch (e) {
-      throw Exception('Failed to approve cylinders: ${e.toString()}');
-    }
-  }
-
-  // Batch reject cylinders
-  Future<void> batchRejectCylinders(String reason, {String? notes}) async {
-    try {
-      if (state.selectedCylinders.isEmpty) {
-        throw Exception('No cylinders selected');
-      }
-      
-      await _apiService.post(
-        'inspection/cylinders/batch-reject',
-        data: {
-          'cylinderIds': state.selectedCylinders,
-          'reason': reason,
-          if (notes != null) 'notes': notes,
-        },
-      );
-      
-      // Refresh data after batch rejection
-      await getCylindersForInspection(page: state.currentPage);
-    } catch (e) {
-      throw Exception('Failed to reject cylinders: ${e.toString()}');
-    }
-  }
-}
-
-// Inspection provider
-final inspectionProvider = StateNotifierProvider<InspectionNotifier, InspectionState>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return InspectionNotifier(apiService);
+// Provider for inspections list state
+final inspectionsProvider = AsyncNotifierProvider<InspectionsNotifier, List<Inspection>>(() {
+  return InspectionsNotifier();
 });
+
+// Provider for selected inspection
+final selectedInspectionProvider = StateProvider<Inspection?>((ref) => null);
+
+// Provider for inspection filter parameters
+final inspectionFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
+  return {
+    'result': null,
+    'cylinderId': null,
+    'inspectedById': null,
+    'startDate': null,
+    'endDate': null,
+    'page': 1,
+    'limit': AppConfig.defaultPageSize,
+  };
+});
+
+// Provider for inspections pagination info
+final inspectionPaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
+  return {
+    'totalCount': 0,
+    'currentPage': 1,
+    'totalPages': 1,
+  };
+});
+
+// Provider for cylinder inspection history
+final cylinderInspectionHistoryProvider = AsyncNotifierProvider<CylinderInspectionHistoryNotifier, List<Inspection>>(() {
+  return CylinderInspectionHistoryNotifier();
+});
+
+class InspectionsNotifier extends AsyncNotifier<List<Inspection>> {
+  late ApiService _apiService;
+  
+  @override
+  Future<List<Inspection>> build() async {
+    _apiService = ref.read(apiServiceProvider);
+    return [];
+  }
+  
+  // Get all inspections with optional filters
+  Future<void> getInspections({Map<String, dynamic>? filters}) async {
+    state = const AsyncValue.loading();
+    
+    try {
+      final currentFilters = ref.read(inspectionFilterProvider);
+      final queryParams = filters ?? currentFilters;
+      
+      // Update filter provider if new filters are provided
+      if (filters != null) {
+        ref.read(inspectionFilterProvider.notifier).state = {
+          ...currentFilters,
+          ...filters,
+        };
+      }
+      
+      final response = await _apiService.get(
+        AppConfig.inspectionsEndpoint,
+        queryParams: queryParams,
+      );
+      
+      final List<Inspection> inspections = (response['inspections'] as List)
+          .map((inspectionData) => Inspection.fromJson(inspectionData))
+          .toList();
+      
+      // Update pagination info
+      ref.read(inspectionPaginationProvider.notifier).state = {
+        'totalCount': response['totalCount'],
+        'currentPage': response['currentPage'],
+        'totalPages': response['totalPages'],
+      };
+      
+      state = AsyncValue.data(inspections);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+  
+  // Get inspection by ID
+  Future<Inspection> getInspectionById(int id) async {
+    try {
+      final response = await _apiService.get('${AppConfig.inspectionsEndpoint}/$id');
+      return Inspection.fromJson(response['inspection']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  // Create new inspection
+  Future<Inspection> createInspection(Inspection inspection) async {
+    try {
+      final response = await _apiService.post(
+        AppConfig.inspectionsEndpoint,
+        data: inspection.toCreateJson(),
+      );
+      
+      final newInspection = Inspection.fromJson(response['inspection']);
+      
+      // Update state with new inspection
+      state = AsyncValue.data([...state.value ?? [], newInspection]);
+      
+      return newInspection;
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  // Batch inspect cylinders
+  Future<void> batchInspect(List<int> cylinderIds, String result, String? notes) async {
+    try {
+      await _apiService.post(
+        '${AppConfig.inspectionsEndpoint}/batch',
+        data: Inspection.toBatchInspectJson(
+          cylinderIds: cylinderIds,
+          result: result,
+          notes: notes,
+        ),
+      );
+      
+      // Refresh inspections list
+      await getInspections();
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+class CylinderInspectionHistoryNotifier extends AsyncNotifier<List<Inspection>> {
+  late ApiService _apiService;
+  
+  @override
+  Future<List<Inspection>> build() async {
+    _apiService = ref.read(apiServiceProvider);
+    return [];
+  }
+  
+  // Get cylinder inspection history
+  Future<void> getCylinderInspectionHistory(int cylinderId) async {
+    state = const AsyncValue.loading();
+    
+    try {
+      final response = await _apiService.get('${AppConfig.inspectionsEndpoint}/cylinder/$cylinderId');
+      
+      final List<Inspection> inspections = (response['inspections'] as List)
+          .map((inspectionData) => Inspection.fromJson(inspectionData))
+          .toList();
+      
+      state = AsyncValue.data(inspections);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+}

@@ -1,202 +1,178 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/customer.dart';
 import '../services/api_service.dart';
+import '../config/app_config.dart';
 
-// State class for customer list
-class CustomersState {
-  final bool isLoading;
-  final List<Customer> customers;
-  final String? errorMessage;
-  final int totalCount;
-  final int currentPage;
-  final int totalPages;
+// Provider for customers list state
+final customersProvider = AsyncNotifierProvider<CustomersNotifier, List<Customer>>(() {
+  return CustomersNotifier();
+});
 
-  const CustomersState({
-    this.isLoading = false,
-    this.customers = const [],
-    this.errorMessage,
-    this.totalCount = 0,
-    this.currentPage = 1,
-    this.totalPages = 1,
-  });
+// Provider for selected customer
+final selectedCustomerProvider = StateProvider<Customer?>((ref) => null);
 
-  // Copy with method for immutability
-  CustomersState copyWith({
-    bool? isLoading,
-    List<Customer>? customers,
-    String? errorMessage,
-    int? totalCount,
-    int? currentPage,
-    int? totalPages,
-  }) {
-    return CustomersState(
-      isLoading: isLoading ?? this.isLoading,
-      customers: customers ?? this.customers,
-      errorMessage: errorMessage,
-      totalCount: totalCount ?? this.totalCount,
-      currentPage: currentPage ?? this.currentPage,
-      totalPages: totalPages ?? this.totalPages,
-    );
+// Provider for customer filter parameters
+final customerFilterProvider = StateProvider<Map<String, dynamic>>((ref) {
+  return {
+    'type': null,
+    'paymentType': null,
+    'search': null,
+    'page': 1,
+    'limit': AppConfig.defaultPageSize,
+  };
+});
+
+// Provider for customers pagination info
+final customerPaginationProvider = StateProvider<Map<String, dynamic>>((ref) {
+  return {
+    'totalCount': 0,
+    'currentPage': 1,
+    'totalPages': 1,
+  };
+});
+
+class CustomersNotifier extends AsyncNotifier<List<Customer>> {
+  late ApiService _apiService;
+  
+  @override
+  Future<List<Customer>> build() async {
+    _apiService = ref.read(apiServiceProvider);
+    return [];
   }
-}
-
-// Customer notifier to handle customer list state
-class CustomerNotifier extends StateNotifier<CustomersState> {
-  final ApiService _apiService;
-
-  CustomerNotifier(this._apiService) : super(const CustomersState());
-
-  // Get customers with pagination and filters
-  Future<void> getCustomers({
-    int page = 1,
-    int limit = 20,
-    String? type,
-    String? paymentType,
-    String? search,
-    String? sortBy,
-    String? order,
-  }) async {
+  
+  // Get all customers with optional filters
+  Future<void> getCustomers({Map<String, dynamic>? filters}) async {
+    state = const AsyncValue.loading();
+    
     try {
-      state = state.copyWith(isLoading: true, errorMessage: null);
-
+      final currentFilters = ref.read(customerFilterProvider);
+      final queryParams = filters ?? currentFilters;
+      
+      // Update filter provider if new filters are provided
+      if (filters != null) {
+        ref.read(customerFilterProvider.notifier).state = {
+          ...currentFilters,
+          ...filters,
+        };
+      }
+      
       final response = await _apiService.get(
-        'customers',
-        queryParameters: {
-          'page': page.toString(),
-          'limit': limit.toString(),
-          if (type != null) 'type': type,
-          if (paymentType != null) 'paymentType': paymentType,
-          if (search != null && search.isNotEmpty) 'search': search,
-          if (sortBy != null) 'sortBy': sortBy,
-          if (order != null) 'order': order,
-        },
+        AppConfig.customersEndpoint,
+        queryParams: queryParams,
       );
-
+      
       final List<Customer> customers = (response['customers'] as List)
-          .map((json) => Customer.fromJson(json))
+          .map((customerData) => Customer.fromJson(customerData))
           .toList();
-
-      state = state.copyWith(
-        isLoading: false,
-        customers: customers,
-        totalCount: response['totalCount'] ?? 0,
-        currentPage: response['currentPage'] ?? 1,
-        totalPages: response['totalPages'] ?? 1,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to load customers: ${e.toString()}',
-      );
-    }
-  }
-
-  // Get customer by ID
-  Future<Map<String, dynamic>> getCustomerById(int id) async {
-    try {
-      final response = await _apiService.get('customers/$id');
-      return {
-        'customer': Customer.fromJson(response['customer']),
-        'recentSales': response['recentSales'],
+      
+      // Update pagination info
+      ref.read(customerPaginationProvider.notifier).state = {
+        'totalCount': response['totalCount'],
+        'currentPage': response['currentPage'],
+        'totalPages': response['totalPages'],
       };
-    } catch (e) {
-      throw Exception('Failed to load customer: ${e.toString()}');
+      
+      state = AsyncValue.data(customers);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
-
-  // Create customer
-  Future<Customer> createCustomer(Map<String, dynamic> customerData) async {
+  
+  // Get customer by ID
+  Future<Customer> getCustomerById(int id) async {
     try {
-      final response = await _apiService.post('customers', data: customerData);
-      final customer = Customer.fromJson(response['customer']);
+      final response = await _apiService.get('${AppConfig.customersEndpoint}/$id');
+      return Customer.fromJson(response['customer']);
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  // Create customer
+  Future<Customer> createCustomer(Customer customer) async {
+    try {
+      final response = await _apiService.post(
+        AppConfig.customersEndpoint,
+        data: customer.toCreateJson(),
+      );
+      
+      final newCustomer = Customer.fromJson(response['customer']);
       
       // Update state with new customer
-      state = state.copyWith(
-        customers: [...state.customers, customer],
-        totalCount: state.totalCount + 1,
+      state = AsyncValue.data([...state.value ?? [], newCustomer]);
+      
+      return newCustomer;
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  // Update customer
+  Future<Customer> updateCustomer(int id, Customer updatedCustomer) async {
+    try {
+      final response = await _apiService.put(
+        '${AppConfig.customersEndpoint}/$id',
+        data: {
+          'name': updatedCustomer.name,
+          'type': updatedCustomer.type,
+          'address': updatedCustomer.address,
+          'contactPerson': updatedCustomer.contactPerson,
+          'contactNumber': updatedCustomer.contactNumber,
+          'email': updatedCustomer.email,
+          'paymentType': updatedCustomer.paymentType,
+          'priceGroup': updatedCustomer.priceGroup,
+          'creditLimit': updatedCustomer.creditLimit,
+        },
+      );
+      
+      final customer = Customer.fromJson(response['customer']);
+      
+      // Update state with updated customer
+      state = AsyncValue.data(
+        state.value?.map((c) => c.id == id ? customer : c).toList() ?? [],
       );
       
       return customer;
     } catch (e) {
-      throw Exception('Failed to create customer: ${e.toString()}');
+      rethrow;
     }
   }
-
-  // Update customer
-  Future<Customer> updateCustomer(int id, Map<String, dynamic> customerData) async {
+  
+  // Update customer credit
+  Future<Customer> updateCustomerCredit(int id, double amount, String operation) async {
     try {
-      final response = await _apiService.put('customers/$id', data: customerData);
-      final updatedCustomer = Customer.fromJson(response['customer']);
-      
-      // Update state with updated customer
-      final index = state.customers.indexWhere((c) => c.id == id);
-      if (index >= 0) {
-        final updatedCustomers = [...state.customers];
-        updatedCustomers[index] = updatedCustomer;
-        state = state.copyWith(customers: updatedCustomers);
-      }
-      
-      return updatedCustomer;
-    } catch (e) {
-      throw Exception('Failed to update customer: ${e.toString()}');
-    }
-  }
-
-  // Update customer balance
-  Future<Customer> updateCustomerBalance(
-    int id,
-    double amount,
-    String operation,
-    {String? notes}
-  ) async {
-    try {
-      final response = await _apiService.patch(
-        'customers/$id/balance',
+      final response = await _apiService.put(
+        '${AppConfig.customersEndpoint}/$id/credit',
         data: {
           'amount': amount,
           'operation': operation,
-          if (notes != null) 'notes': notes,
         },
       );
       
       final customer = Customer.fromJson(response['customer']);
       
-      // Update state with updated customer balance
-      final index = state.customers.indexWhere((c) => c.id == id);
-      if (index >= 0) {
-        final updatedCustomers = [...state.customers];
-        updatedCustomers[index] = customer;
-        state = state.copyWith(customers: updatedCustomers);
-      }
+      // Update state with updated customer
+      state = AsyncValue.data(
+        state.value?.map((c) => c.id == id ? customer : c).toList() ?? [],
+      );
       
       return customer;
     } catch (e) {
-      throw Exception('Failed to update customer balance: ${e.toString()}');
+      rethrow;
     }
   }
-
+  
   // Delete customer
   Future<void> deleteCustomer(int id) async {
     try {
-      await _apiService.delete('customers/$id');
+      await _apiService.delete('${AppConfig.customersEndpoint}/$id');
       
       // Update state by removing deleted customer
-      final updatedCustomers = state.customers.where((c) => c.id != id).toList();
-      state = state.copyWith(
-        customers: updatedCustomers,
-        totalCount: state.totalCount - 1,
+      state = AsyncValue.data(
+        state.value?.where((customer) => customer.id != id).toList() ?? [],
       );
     } catch (e) {
-      throw Exception('Failed to delete customer: ${e.toString()}');
+      rethrow;
     }
   }
 }
-
-// Customer providers
-final customerProvider = StateNotifierProvider<CustomerNotifier, CustomersState>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return CustomerNotifier(apiService);
-});
-
-// Provider for current customer (for details page)
-final currentCustomerProvider = StateProvider<Customer?>((ref) => null);

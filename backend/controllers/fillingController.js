@@ -1,506 +1,422 @@
-const { 
-  FillingLine, 
-  FillingSession, 
-  FillingSessionCylinder,
-  FILLING_LINE_STATUS 
-} = require('../models/FillingLine');
-const { Cylinder, CYLINDER_STATUSES } = require('../models/Cylinder');
-const { User } = require('../models/User');
-const { Op } = require('sequelize');
+const { FillingLine, FillingBatch, FillingDetail } = require('../models/filling');
+const Cylinder = require('../models/cylinder');
+const User = require('../models/user');
 const { sequelize } = require('../config/db');
+const { Op } = require('sequelize');
 
 // Get all filling lines
-exports.getAllFillingLines = async (req, res) => {
+const getAllFillingLines = async (req, res) => {
   try {
     const fillingLines = await FillingLine.findAll({
+      where: { isActive: true },
       order: [['name', 'ASC']]
     });
-
+    
     res.status(200).json({ fillingLines });
   } catch (error) {
     console.error('Get all filling lines error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching filling lines' });
   }
 };
 
 // Get filling line by ID
-exports.getFillingLineById = async (req, res) => {
+const getFillingLineById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const lineId = req.params.id;
     
-    const fillingLine = await FillingLine.findByPk(id);
+    const fillingLine = await FillingLine.findOne({
+      where: { id: lineId, isActive: true }
+    });
+    
     if (!fillingLine) {
       return res.status(404).json({ message: 'Filling line not found' });
     }
-
-    // Get active session if exists
-    const activeSession = await FillingSession.findOne({
-      where: { 
-        fillingLineId: id,
-        endTime: null
-      },
-      include: [
-        {
-          model: User,
-          as: 'startedBy',
-          attributes: ['id', 'name']
-        }
-      ],
-      order: [['startTime', 'DESC']]
-    });
-
-    res.status(200).json({ 
-      fillingLine,
-      activeSession
-    });
+    
+    res.status(200).json({ fillingLine });
   } catch (error) {
     console.error('Get filling line by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching filling line' });
   }
 };
 
-// Create filling line
-exports.createFillingLine = async (req, res) => {
+// Create new filling line
+const createFillingLine = async (req, res) => {
   try {
-    const {
-      name,
-      capacity,
-      cylinderType,
-      notes
-    } = req.body;
-
+    const { name, capacity, gasType } = req.body;
+    
     // Validate required fields
-    if (!name || !cylinderType) {
-      return res.status(400).json({ message: 'Please provide name and cylinder type' });
+    if (!name || !capacity || !gasType) {
+      return res.status(400).json({ 
+        message: 'Name, capacity, and gas type are required' 
+      });
     }
-
-    // Create filling line
-    const fillingLine = await FillingLine.create({
+    
+    // Create new filling line
+    const newFillingLine = await FillingLine.create({
       name,
-      capacity: capacity || 10,
-      status: FILLING_LINE_STATUS.IDLE,
-      cylinderType,
-      notes: notes || ''
+      capacity: parseInt(capacity),
+      gasType,
+      status: 'Idle'
     });
-
+    
     res.status(201).json({
       message: 'Filling line created successfully',
-      fillingLine
+      fillingLine: newFillingLine
     });
   } catch (error) {
     console.error('Create filling line error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while creating filling line' });
   }
 };
 
 // Update filling line
-exports.updateFillingLine = async (req, res) => {
+const updateFillingLine = async (req, res) => {
   try {
-    const { id } = req.params;
-    const {
-      name,
-      capacity,
-      status,
-      cylinderType,
-      isActive,
-      notes
-    } = req.body;
-
-    // Find filling line
-    const fillingLine = await FillingLine.findByPk(id);
+    const lineId = req.params.id;
+    const { name, capacity, gasType, status } = req.body;
+    
+    const fillingLine = await FillingLine.findOne({
+      where: { id: lineId, isActive: true }
+    });
+    
     if (!fillingLine) {
       return res.status(404).json({ message: 'Filling line not found' });
     }
-
-    // Update fields
+    
+    // Update fields if provided
     if (name) fillingLine.name = name;
-    if (capacity) fillingLine.capacity = capacity;
-    if (status && Object.values(FILLING_LINE_STATUS).includes(status)) {
-      fillingLine.status = status;
-    }
-    if (cylinderType) fillingLine.cylinderType = cylinderType;
-    if (isActive !== undefined) fillingLine.isActive = isActive;
-    if (notes !== undefined) fillingLine.notes = notes;
-
+    if (capacity) fillingLine.capacity = parseInt(capacity);
+    if (gasType) fillingLine.gasType = gasType;
+    if (status) fillingLine.status = status;
+    
     await fillingLine.save();
-
+    
     res.status(200).json({
       message: 'Filling line updated successfully',
       fillingLine
     });
   } catch (error) {
     console.error('Update filling line error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while updating filling line' });
   }
 };
 
-// Start filling session
-exports.startFillingSession = async (req, res) => {
+// Delete filling line (soft delete)
+const deleteFillingLine = async (req, res) => {
   try {
-    const { fillingLineId } = req.body;
-    const userId = req.user.userId;
-
-    // Validate input
-    if (!fillingLineId) {
-      return res.status(400).json({ message: 'Please provide filling line ID' });
-    }
-
-    // Find filling line
-    const fillingLine = await FillingLine.findByPk(fillingLineId);
+    const lineId = req.params.id;
+    
+    const fillingLine = await FillingLine.findByPk(lineId);
     if (!fillingLine) {
       return res.status(404).json({ message: 'Filling line not found' });
     }
-
-    // Check if filling line is available
-    if (fillingLine.status !== FILLING_LINE_STATUS.IDLE) {
-      return res.status(400).json({ message: 'Filling line is not available' });
-    }
-
-    // Check if there's already an active session
-    const activeSession = await FillingSession.findOne({
-      where: { 
-        fillingLineId,
-        endTime: null
-      }
-    });
-
-    if (activeSession) {
-      return res.status(400).json({ message: 'Filling line already has an active session' });
-    }
-
-    // Update filling line status
-    fillingLine.status = FILLING_LINE_STATUS.ACTIVE;
+    
+    // Soft delete
+    fillingLine.isActive = false;
     await fillingLine.save();
+    
+    res.status(200).json({ message: 'Filling line deleted successfully' });
+  } catch (error) {
+    console.error('Delete filling line error:', error);
+    res.status(500).json({ message: 'Server error while deleting filling line' });
+  }
+};
 
-    // Create filling session
-    const fillingSession = await FillingSession.create({
+// Start new filling batch
+const startFillingBatch = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { fillingLineId, cylinderIds, notes } = req.body;
+    const userId = req.user.id;
+    
+    // Validate required fields
+    if (!fillingLineId || !cylinderIds || !cylinderIds.length) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        message: 'Filling line ID and at least one cylinder are required' 
+      });
+    }
+    
+    // Check if filling line exists and is available
+    const fillingLine = await FillingLine.findOne({
+      where: { id: fillingLineId, isActive: true, status: 'Idle' },
+      transaction
+    });
+    
+    if (!fillingLine) {
+      await transaction.rollback();
+      return res.status(404).json({ 
+        message: 'Filling line not found or is currently in use' 
+      });
+    }
+    
+    // Check if number of cylinders exceeds line capacity
+    if (cylinderIds.length > fillingLine.capacity) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        message: `Filling line capacity (${fillingLine.capacity}) exceeded` 
+      });
+    }
+    
+    // Check if all cylinders exist, are empty, and match line gas type
+    const cylinders = await Cylinder.findAll({
+      where: { 
+        id: { [Op.in]: cylinderIds },
+        isActive: true,
+        status: 'Empty',
+        gasType: fillingLine.gasType
+      },
+      transaction
+    });
+    
+    if (cylinders.length !== cylinderIds.length) {
+      await transaction.rollback();
+      return res.status(400).json({ 
+        message: 'One or more cylinders are not available for filling or do not match line gas type' 
+      });
+    }
+    
+    // Generate batch number
+    const batchNumber = `FILL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    
+    // Create filling batch
+    const newBatch = await FillingBatch.create({
+      batchNumber,
       fillingLineId,
       startedById: userId,
-      startTime: new Date()
-    });
-
-    res.status(201).json({
-      message: 'Filling session started successfully',
-      fillingSession
-    });
-  } catch (error) {
-    console.error('Start filling session error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Add cylinder to filling session
-exports.addCylinderToSession = async (req, res) => {
-  try {
-    const { sessionId, cylinderId, pressureBeforeFilling } = req.body;
-
-    // Validate input
-    if (!sessionId || !cylinderId) {
-      return res.status(400).json({ message: 'Please provide session ID and cylinder ID' });
-    }
-
-    // Find session
-    const session = await FillingSession.findByPk(sessionId);
-    if (!session) {
-      return res.status(404).json({ message: 'Filling session not found' });
-    }
-
-    // Check if session is active
-    if (session.endTime) {
-      return res.status(400).json({ message: 'Filling session is already completed' });
-    }
-
-    // Find cylinder
-    const cylinder = await Cylinder.findByPk(cylinderId);
-    if (!cylinder) {
-      return res.status(404).json({ message: 'Cylinder not found' });
-    }
-
-    // Check if cylinder is already in session
-    const existingSessionCylinder = await FillingSessionCylinder.findOne({
-      where: {
-        fillingSessionId: sessionId,
-        cylinderId
-      }
-    });
-
-    if (existingSessionCylinder) {
-      return res.status(400).json({ message: 'Cylinder is already in this session' });
-    }
-
-    // Add cylinder to session
-    const sessionCylinder = await FillingSessionCylinder.create({
-      fillingSessionId: sessionId,
-      cylinderId,
-      status: 'pending',
-      pressureBeforeFilling: pressureBeforeFilling || 0
-    });
-
-    // Update cylinder status
-    cylinder.status = CYLINDER_STATUSES.INSPECTION;
-    await cylinder.save();
-
-    res.status(201).json({
-      message: 'Cylinder added to filling session successfully',
-      sessionCylinder
-    });
-  } catch (error) {
-    console.error('Add cylinder to session error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Update cylinder filling status
-exports.updateCylinderFilling = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, pressureAfterFilling, notes } = req.body;
-
-    // Validate input
-    if (!status || !['pending', 'filling', 'success', 'failed'].includes(status)) {
-      return res.status(400).json({ message: 'Please provide a valid status' });
-    }
-
-    // Find session cylinder
-    const sessionCylinder = await FillingSessionCylinder.findByPk(id);
-    if (!sessionCylinder) {
-      return res.status(404).json({ message: 'Session cylinder not found' });
-    }
-
-    // Update session cylinder
-    sessionCylinder.status = status;
-    sessionCylinder.filledAt = new Date();
-    if (pressureAfterFilling) sessionCylinder.pressureAfterFilling = pressureAfterFilling;
-    if (notes) sessionCylinder.notes = notes;
-    await sessionCylinder.save();
-
-    // Update cylinder status based on filling result
-    const cylinder = await Cylinder.findByPk(sessionCylinder.cylinderId);
-    if (cylinder) {
-      if (status === 'success') {
-        cylinder.status = CYLINDER_STATUSES.FILLED;
-        cylinder.lastFilled = new Date();
-      } else if (status === 'failed') {
-        cylinder.status = CYLINDER_STATUSES.ERROR;
-      }
-      await cylinder.save();
-    }
-
-    res.status(200).json({
-      message: 'Cylinder filling status updated successfully',
-      sessionCylinder
-    });
-  } catch (error) {
-    console.error('Update cylinder filling status error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// End filling session
-exports.endFillingSession = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.userId;
-    const { notes } = req.body;
-
-    // Find session
-    const session = await FillingSession.findByPk(id);
-    if (!session) {
-      return res.status(404).json({ message: 'Filling session not found' });
-    }
-
-    // Check if session is already ended
-    if (session.endTime) {
-      return res.status(400).json({ message: 'Filling session is already completed' });
-    }
-
-    // Update session
-    session.endTime = new Date();
-    session.endedById = userId;
-    if (notes) session.notes = notes;
-    await session.save();
-
+      status: 'In Progress',
+      notes
+    }, { transaction });
+    
+    // Create filling details for each cylinder
+    const fillingDetails = await Promise.all(
+      cylinders.map(cylinder => 
+        FillingDetail.create({
+          fillingBatchId: newBatch.id,
+          cylinderId: cylinder.id,
+          initialPressure: 0,
+          status: 'In Progress'
+        }, { transaction })
+      )
+    );
+    
+    // Update cylinders status
+    await Promise.all(
+      cylinders.map(cylinder => {
+        cylinder.status = 'In Filling';
+        return cylinder.save({ transaction });
+      })
+    );
+    
     // Update filling line status
-    const fillingLine = await FillingLine.findByPk(session.fillingLineId);
-    if (fillingLine) {
-      fillingLine.status = FILLING_LINE_STATUS.IDLE;
-      await fillingLine.save();
-    }
-
-    // Get all pending cylinders in this session
-    const pendingCylinders = await FillingSessionCylinder.findAll({
-      where: {
-        fillingSessionId: id,
-        status: 'pending'
-      }
-    });
-
-    // Mark all pending cylinders as failed
-    if (pendingCylinders.length > 0) {
-      await Promise.all(pendingCylinders.map(async (sc) => {
-        sc.status = 'failed';
-        sc.notes = 'Session ended before processing';
-        await sc.save();
-
-        // Update cylinder status
-        const cylinder = await Cylinder.findByPk(sc.cylinderId);
-        if (cylinder) {
-          cylinder.status = CYLINDER_STATUSES.ERROR;
-          await cylinder.save();
-        }
-      }));
-    }
-
-    res.status(200).json({
-      message: 'Filling session ended successfully',
-      session
+    fillingLine.status = 'Active';
+    await fillingLine.save({ transaction });
+    
+    await transaction.commit();
+    
+    res.status(201).json({
+      message: 'Filling batch started successfully',
+      batch: newBatch,
+      details: fillingDetails
     });
   } catch (error) {
-    console.error('End filling session error:', error);
-    res.status(500).json({ message: 'Server error' });
+    await transaction.rollback();
+    console.error('Start filling batch error:', error);
+    res.status(500).json({ message: 'Server error while starting filling batch' });
   }
 };
 
-// Get session details
-exports.getSessionDetails = async (req, res) => {
+// Complete filling batch
+const completeFillingBatch = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    const { id } = req.params;
-
-    // Find session with related data
-    const session = await FillingSession.findByPk(id, {
+    const batchId = req.params.id;
+    const { cylinderResults, notes } = req.body;
+    const userId = req.user.id;
+    
+    // Validate required fields
+    if (!cylinderResults || !Array.isArray(cylinderResults)) {
+      await transaction.rollback();
+      return res.status(400).json({ message: 'Cylinder results are required' });
+    }
+    
+    // Check if batch exists and is in progress
+    const batch = await FillingBatch.findOne({
+      where: { id: batchId, status: 'In Progress' },
       include: [
-        {
-          model: FillingLine,
-          as: 'fillingLine'
-        },
-        {
-          model: User,
-          as: 'startedBy',
-          attributes: ['id', 'name']
-        },
-        {
-          model: User,
-          as: 'endedBy',
-          attributes: ['id', 'name']
-        },
-        {
-          model: FillingSessionCylinder,
-          as: 'cylinders',
-          include: [
-            {
-              model: Cylinder,
-              as: 'cylinder'
-            }
-          ]
+        { model: FillingLine }
+      ],
+      transaction
+    });
+    
+    if (!batch) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Filling batch not found or already completed' });
+    }
+    
+    // Get all filling details for this batch
+    const fillingDetails = await FillingDetail.findAll({
+      where: { fillingBatchId: batchId },
+      include: [{ model: Cylinder }],
+      transaction
+    });
+    
+    // Create a map for quick lookup
+    const detailsMap = new Map();
+    fillingDetails.forEach(detail => {
+      detailsMap.set(detail.cylinderId.toString(), detail);
+    });
+    
+    // Process each cylinder result
+    for (const result of cylinderResults) {
+      const { cylinderId, finalPressure, status, notes: cylinderNotes } = result;
+      
+      const detail = detailsMap.get(cylinderId.toString());
+      if (!detail) {
+        await transaction.rollback();
+        return res.status(400).json({ 
+          message: `Cylinder ID ${cylinderId} is not part of this batch` 
+        });
+      }
+      
+      // Update filling detail
+      detail.finalPressure = finalPressure;
+      detail.status = status;
+      if (cylinderNotes) detail.notes = cylinderNotes;
+      await detail.save({ transaction });
+      
+      // Update cylinder status based on filling result
+      const cylinder = detail.Cylinder;
+      cylinder.status = status === 'Success' ? 'Full' : status === 'Failed' ? 'Error' : 'Empty';
+      if (status === 'Success') {
+        cylinder.lastFilledDate = new Date();
+      }
+      await cylinder.save({ transaction });
+    }
+    
+    // Complete the batch
+    batch.endTime = new Date();
+    batch.endedById = userId;
+    batch.status = 'Completed';
+    if (notes) batch.notes = notes;
+    await batch.save({ transaction });
+    
+    // Update filling line status
+    const fillingLine = batch.FillingLine;
+    fillingLine.status = 'Idle';
+    await fillingLine.save({ transaction });
+    
+    await transaction.commit();
+    
+    res.status(200).json({
+      message: 'Filling batch completed successfully',
+      batch
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Complete filling batch error:', error);
+    res.status(500).json({ message: 'Server error while completing filling batch' });
+  }
+};
+
+// Get filling batch by ID
+const getFillingBatchById = async (req, res) => {
+  try {
+    const batchId = req.params.id;
+    
+    const batch = await FillingBatch.findOne({
+      where: { id: batchId },
+      include: [
+        { model: FillingLine },
+        { model: User, as: 'StartedBy', attributes: ['id', 'name'] },
+        { model: User, as: 'EndedBy', attributes: ['id', 'name'] },
+        { 
+          model: FillingDetail,
+          include: [{ model: Cylinder }]
         }
       ]
     });
-
-    if (!session) {
-      return res.status(404).json({ message: 'Filling session not found' });
+    
+    if (!batch) {
+      return res.status(404).json({ message: 'Filling batch not found' });
     }
-
-    // Calculate statistics
-    const stats = {
-      total: session.cylinders.length,
-      pending: 0,
-      filling: 0,
-      success: 0,
-      failed: 0
-    };
-
-    session.cylinders.forEach(cylinder => {
-      stats[cylinder.status]++;
-    });
-
-    res.status(200).json({
-      session,
-      stats
-    });
+    
+    res.status(200).json({ batch });
   } catch (error) {
-    console.error('Get session details error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get filling batch by ID error:', error);
+    res.status(500).json({ message: 'Server error while fetching filling batch' });
   }
 };
 
-// Get filling sessions
-exports.getFillingSessionsList = async (req, res) => {
+// Get all filling batches with pagination and filters
+const getAllFillingBatches = async (req, res) => {
   try {
-    const { page = 1, limit = 20, fillingLineId, status } = req.query;
+    const { 
+      status,
+      fillingLineId,
+      startDate,
+      endDate,
+      page = 1, 
+      limit = 20 
+    } = req.query;
+    
+    // Build filter conditions
+    const whereConditions = {};
+    
+    if (status) whereConditions.status = status;
+    if (fillingLineId) whereConditions.fillingLineId = fillingLineId;
+    
+    if (startDate && endDate) {
+      whereConditions.startTime = {
+        [Op.between]: [new Date(startDate), new Date(endDate)]
+      };
+    } else if (startDate) {
+      whereConditions.startTime = {
+        [Op.gte]: new Date(startDate)
+      };
+    } else if (endDate) {
+      whereConditions.startTime = {
+        [Op.lte]: new Date(endDate)
+      };
+    }
+    
+    // Pagination
     const offset = (page - 1) * limit;
-    let whereClause = {};
-
-    // Apply filters
-    if (fillingLineId) {
-      whereClause.fillingLineId = fillingLineId;
-    }
-
-    if (status === 'active') {
-      whereClause.endTime = null;
-    } else if (status === 'completed') {
-      whereClause.endTime = { [Op.not]: null };
-    }
-
-    // Get sessions with pagination
-    const { count, rows: sessions } = await FillingSession.findAndCountAll({
-      where: whereClause,
+    
+    const { count, rows: batches } = await FillingBatch.findAndCountAll({
+      where: whereConditions,
       include: [
-        {
-          model: FillingLine,
-          as: 'fillingLine'
-        },
-        {
-          model: User,
-          as: 'startedBy',
-          attributes: ['id', 'name']
-        },
-        {
-          model: User,
-          as: 'endedBy',
-          attributes: ['id', 'name']
-        }
+        { model: FillingLine },
+        { model: User, as: 'StartedBy', attributes: ['id', 'name'] },
+        { model: User, as: 'EndedBy', attributes: ['id', 'name'] }
       ],
       order: [['startTime', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
-
-    // Get cylinder counts for each session
-    const sessionsWithCounts = await Promise.all(sessions.map(async (session) => {
-      const cylinders = await FillingSessionCylinder.findAll({
-        where: { fillingSessionId: session.id },
-        attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-        group: ['status']
-      });
-
-      const stats = {
-        total: 0,
-        pending: 0,
-        filling: 0,
-        success: 0,
-        failed: 0
-      };
-
-      cylinders.forEach(cylinder => {
-        const count = parseInt(cylinder.dataValues.count);
-        stats[cylinder.status] = count;
-        stats.total += count;
-      });
-
-      return {
-        ...session.toJSON(),
-        stats
-      };
-    }));
-
+    
     res.status(200).json({
-      sessions: sessionsWithCounts,
+      batches,
       totalCount: count,
-      totalPages: Math.ceil(count / limit),
-      currentPage: parseInt(page)
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(count / limit)
     });
   } catch (error) {
-    console.error('Get filling sessions list error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get all filling batches error:', error);
+    res.status(500).json({ message: 'Server error while fetching filling batches' });
   }
+};
+
+module.exports = {
+  getAllFillingLines,
+  getFillingLineById,
+  createFillingLine,
+  updateFillingLine,
+  deleteFillingLine,
+  startFillingBatch,
+  completeFillingBatch,
+  getFillingBatchById,
+  getAllFillingBatches
 };

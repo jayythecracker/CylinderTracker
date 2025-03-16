@@ -1,33 +1,37 @@
 const express = require('express');
 const cors = require('cors');
-const { sequelize } = require('./config/db');
+const dotenv = require('dotenv');
+const { Pool } = require('pg');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const factoryRoutes = require('./routes/factoryRoutes');
 const cylinderRoutes = require('./routes/cylinderRoutes');
 const customerRoutes = require('./routes/customerRoutes');
-const factoryRoutes = require('./routes/factoryRoutes');
 const fillingRoutes = require('./routes/fillingRoutes');
 const inspectionRoutes = require('./routes/inspectionRoutes');
-const salesRoutes = require('./routes/salesRoutes');
+const saleRoutes = require('./routes/saleRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 
-// Initialize express app
+// Load environment variables
+dotenv.config();
+
 const app = express();
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000; // Use port 5000 as default for Replit
 
 // Middleware
-app.use(express.json());
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/factories', factoryRoutes);
 app.use('/api/cylinders', cylinderRoutes);
 app.use('/api/customers', customerRoutes);
-app.use('/api/factories', factoryRoutes);
 app.use('/api/filling', fillingRoutes);
 app.use('/api/inspection', inspectionRoutes);
-app.use('/api/sales', salesRoutes);
+app.use('/api/sales', saleRoutes);
 app.use('/api/reports', reportRoutes);
 
 // Health check endpoint
@@ -40,26 +44,34 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+    error: process.env.NODE_ENV === 'production' ? {} : err
   });
 });
 
-// Start server
-const startServer = async () => {
+// Database connection and server start
+async function startServer() {
   try {
-    await sequelize.authenticate();
-    console.log('Database connection has been established successfully.');
+    // Create a database connection pool
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
+
+    // Test database connection
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW()');
+    console.log('Database connected successfully at', result.rows[0].now);
+    client.release();
     
-    // Sync database models (in production, use migrations instead)
-    await sequelize.sync();
-    console.log('Database synchronized.');
-    
+    // Start the server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('Failed to start server:', error);
+    process.exit(1);
   }
-};
+}
 
 startServer();
+
+module.exports = app;

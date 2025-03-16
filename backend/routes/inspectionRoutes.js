@@ -1,46 +1,24 @@
 const express = require('express');
-const inspectionController = require('../controllers/inspectionController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const inspectionController = require('../controllers/inspectionController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Get cylinders for inspection (All roles)
-router.get('/cylinders', inspectionController.getCylindersForInspection);
+// Get all inspections - all authenticated users
+router.get('/', inspectionController.getAllInspections);
 
-// Get cylinder inspection details (All roles)
-router.get('/cylinders/:id', inspectionController.getCylinderInspectionDetails);
+// Get inspection by ID - all authenticated users
+router.get('/:id', inspectionController.getInspectionById);
 
-// Approve cylinder (Filler, Manager, Admin)
-router.patch(
-  '/cylinders/:id/approve',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  inspectionController.approveCylinder
-);
+// Get cylinder inspection history - all authenticated users
+router.get('/cylinder/:cylinderId', inspectionController.getCylinderInspectionHistory);
 
-// Reject cylinder (Filler, Manager, Admin)
-router.patch(
-  '/cylinders/:id/reject',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  inspectionController.rejectCylinder
-);
+// Create new inspection - admin, manager, filler
+router.post('/', authorize(['admin', 'manager', 'filler']), inspectionController.createInspection);
 
-// Batch approve cylinders (Filler, Manager, Admin)
-router.post(
-  '/cylinders/batch-approve',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  inspectionController.batchApproveCylinders
-);
-
-// Batch reject cylinders (Filler, Manager, Admin)
-router.post(
-  '/cylinders/batch-reject',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  inspectionController.batchRejectCylinders
-);
+// Batch inspect cylinders - admin, manager, filler
+router.post('/batch', authorize(['admin', 'manager', 'filler']), inspectionController.batchInspect);
 
 module.exports = router;

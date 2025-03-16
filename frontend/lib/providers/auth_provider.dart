@@ -2,116 +2,82 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 
-// Auth state class to represent different authentication states
-abstract class AuthState {
-  const AuthState();
-}
+// Provider for AuthService
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
 
-class AuthStateInitial extends AuthState {
-  const AuthStateInitial();
-}
+// Provider for current user state
+final authProvider = AsyncNotifierProvider<AuthNotifier, User?>(() {
+  return AuthNotifier();
+});
 
-class AuthStateLoading extends AuthState {
-  const AuthStateLoading();
-}
-
-class AuthStateAuthenticated extends AuthState {
-  final User user;
-  final String token;
-
-  const AuthStateAuthenticated({
-    required this.user,
-    required this.token,
-  });
-}
-
-class AuthStateUnauthenticated extends AuthState {
-  const AuthStateUnauthenticated();
-}
-
-class AuthStateError extends AuthState {
-  final String message;
-
-  const AuthStateError(this.message);
-}
-
-// Auth notifier to handle authentication state
-class AuthNotifier extends StateNotifier<AuthState> {
-  final AuthService _authService;
-
-  AuthNotifier(this._authService) : super(const AuthStateInitial()) {
-    // Check if user is already logged in
-    checkAuth();
+class AuthNotifier extends AsyncNotifier<User?> {
+  late AuthService _authService;
+  
+  @override
+  Future<User?> build() async {
+    _authService = ref.read(authServiceProvider);
+    return _authService.getCurrentUser();
   }
-
-  // Check authentication status
-  Future<void> checkAuth() async {
-    try {
-      final token = await _authService.getToken();
-      
-      if (token != null) {
-        // Token exists, get current user
-        state = const AuthStateLoading();
-        final user = await _authService.getCurrentUser();
-        state = AuthStateAuthenticated(user: user, token: token);
-      } else {
-        state = const AuthStateUnauthenticated();
-      }
-    } catch (e) {
-      // Error or invalid token
-      await _authService.logout();
-      state = AuthStateError(e.toString());
-    }
-  }
-
-  // Login
+  
+  // Login user
   Future<void> login(String email, String password) async {
+    state = const AsyncValue.loading();
+    
     try {
-      state = const AuthStateLoading();
-      final loginResult = await _authService.login(email, password);
-      state = AuthStateAuthenticated(
-        user: loginResult.user,
-        token: loginResult.token,
-      );
-    } catch (e) {
-      state = AuthStateError(e.toString());
+      final user = await _authService.login(email, password);
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
-
-  // Logout
-  Future<void> logout() async {
+  
+  // Refresh user profile
+  Future<void> refreshProfile() async {
+    state = const AsyncValue.loading();
+    
     try {
-      await _authService.logout();
-      state = const AuthStateUnauthenticated();
-    } catch (e) {
-      state = AuthStateError(e.toString());
+      final user = await _authService.getUserProfile();
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
   }
-
+  
+  // Update user profile
+  Future<void> updateProfile(String name, String? contactNumber, String? address) async {
+    state = const AsyncValue.loading();
+    
+    try {
+      final user = await _authService.updateProfile(name, contactNumber, address);
+      state = AsyncValue.data(user);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+  
   // Change password
   Future<void> changePassword(String currentPassword, String newPassword) async {
     try {
-      if (state is! AuthStateAuthenticated) {
-        throw Exception('Not authenticated');
-      }
-      
       await _authService.changePassword(currentPassword, newPassword);
     } catch (e) {
-      throw Exception('Failed to change password: ${e.toString()}');
+      rethrow;
     }
   }
+  
+  // Logout user
+  Future<void> logout() async {
+    try {
+      await _authService.logout();
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+  
+  // Check if user is logged in
+  Future<bool> isLoggedIn() async {
+    return await _authService.isLoggedIn();
+  }
 }
-
-// Providers
-final authServiceProvider = Provider<AuthService>((ref) {
-  final storageService = ref.watch(storageServiceProvider);
-  return AuthService(storageService);
-});
-
-final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final authService = ref.watch(authServiceProvider);
-  return AuthNotifier(authService);
-});
-
-// Import the storage service provider
-import '../services/storage_service.dart';

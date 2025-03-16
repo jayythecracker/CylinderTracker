@@ -1,157 +1,166 @@
-const { User, USER_ROLES } = require('../models/User');
-const { Op } = require('sequelize');
+const User = require('../models/user');
+const { hashPassword } = require('../config/auth');
 
 // Get all users
-exports.getAllUsers = async (req, res) => {
+const getAllUsers = async (req, res) => {
   try {
-    const { role, search } = req.query;
-    let whereClause = {};
-
-    // Filter by role if provided
-    if (role && Object.values(USER_ROLES).includes(role)) {
-      whereClause.role = role;
-    }
-
-    // Search by name or email if provided
-    if (search) {
-      whereClause = {
-        ...whereClause,
-        [Op.or]: [
-          { name: { [Op.iLike]: `%${search}%` } },
-          { email: { [Op.iLike]: `%${search}%` } }
-        ]
-      };
-    }
-
     const users = await User.findAll({
-      where: whereClause,
-      attributes: { exclude: ['password'] },
-      order: [['createdAt', 'DESC']]
+      attributes: { exclude: ['password'] }
     });
-
+    
     res.status(200).json({ users });
   } catch (error) {
     console.error('Get all users error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching users' });
   }
 };
 
 // Get user by ID
-exports.getUserById = async (req, res) => {
+const getUserById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const user = await User.findByPk(id, {
+    const userId = req.params.id;
+    
+    const user = await User.findByPk(userId, {
       attributes: { exclude: ['password'] }
     });
-
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
+    
     res.status(200).json({ user });
   } catch (error) {
     console.error('Get user by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching user' });
+  }
+};
+
+// Create new user
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, role, contactNumber, address } = req.body;
+    
+    // Validate required fields
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ message: 'Name, email, password, and role are required' });
+    }
+    
+    // Check if email already exists
+    const existingUser = await User.findOne({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({ message: 'Email already in use' });
+    }
+    
+    // Create new user
+    const newUser = await User.create({
+      name,
+      email,
+      password,
+      role,
+      contactNumber,
+      address
+    });
+    
+    res.status(201).json({
+      message: 'User created successfully',
+      user: newUser.toJSON()
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ message: 'Server error while creating user' });
   }
 };
 
 // Update user
-exports.updateUser = async (req, res) => {
+const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, email, contact, address, role, isActive } = req.body;
-
-    // Find user
-    const user = await User.findByPk(id);
+    const userId = req.params.id;
+    const { name, email, role, contactNumber, address, isActive } = req.body;
+    
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Update fields
+    
+    // Update fields if provided
     if (name) user.name = name;
-    if (email && email !== user.email) {
-      // Check if email already exists
+    if (email) {
+      // Check if email is already used by another user
       const existingUser = await User.findOne({ where: { email } });
-      if (existingUser && existingUser.id !== parseInt(id)) {
-        return res.status(400).json({ message: 'Email already in use' });
+      if (existingUser && existingUser.id !== parseInt(userId)) {
+        return res.status(409).json({ message: 'Email already in use by another user' });
       }
       user.email = email;
     }
-    if (contact !== undefined) user.contact = contact;
+    if (role) user.role = role;
+    if (contactNumber !== undefined) user.contactNumber = contactNumber;
     if (address !== undefined) user.address = address;
-    if (role && Object.values(USER_ROLES).includes(role)) user.role = role;
     if (isActive !== undefined) user.isActive = isActive;
-
+    
     await user.save();
-
+    
     res.status(200).json({
       message: 'User updated successfully',
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        contact: user.contact,
-        address: user.address,
-        role: user.role,
-        isActive: user.isActive
-      }
+      user: user.toJSON()
     });
   } catch (error) {
     console.error('Update user error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while updating user' });
   }
 };
 
-// Delete user
-exports.deleteUser = async (req, res) => {
+// Reset user password
+const resetPassword = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Find user
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Don't allow deleting the last admin
-    if (user.role === USER_ROLES.ADMIN) {
-      const adminCount = await User.count({ where: { role: USER_ROLES.ADMIN } });
-      if (adminCount <= 1) {
-        return res.status(400).json({ message: 'Cannot delete the last admin user' });
-      }
-    }
-
-    await user.destroy();
-    res.status(200).json({ message: 'User deleted successfully' });
-  } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Reset user password (admin only)
-exports.resetPassword = async (req, res) => {
-  try {
-    const { id } = req.params;
+    const userId = req.params.id;
     const { newPassword } = req.body;
-
+    
     if (!newPassword) {
-      return res.status(400).json({ message: 'Please provide a new password' });
+      return res.status(400).json({ message: 'New password is required' });
     }
-
-    // Find user
-    const user = await User.findByPk(id);
+    
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Update password
-    user.password = newPassword;
+    
+    // Reset password
+    user.password = await hashPassword(newPassword);
     await user.save();
-
+    
     res.status(200).json({ message: 'Password reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while resetting password' });
   }
+};
+
+// Delete user (soft delete by setting isActive to false)
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Soft delete
+    user.isActive = false;
+    await user.save();
+    
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error while deleting user' });
+  }
+};
+
+module.exports = {
+  getAllUsers,
+  getUserById,
+  createUser,
+  updateUser,
+  resetPassword,
+  deleteUser
 };

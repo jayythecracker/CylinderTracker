@@ -1,42 +1,24 @@
 const express = require('express');
-const factoryController = require('../controllers/factoryController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const factoryController = require('../controllers/factoryController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Get all factories (All roles)
+// Get all factories - all authenticated users
 router.get('/', factoryController.getAllFactories);
 
-// Get factory by ID (All roles)
+// Get factory by ID - all authenticated users
 router.get('/:id', factoryController.getFactoryById);
 
-// Create factory (Admin, Manager)
-router.post(
-  '/',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  factoryController.createFactory
-);
+// Create new factory - admin and manager only
+router.post('/', authorize(['admin', 'manager']), factoryController.createFactory);
 
-// Update factory (Admin, Manager)
-router.put(
-  '/:id',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  factoryController.updateFactory
-);
+// Update factory - admin and manager only
+router.put('/:id', authorize(['admin', 'manager']), factoryController.updateFactory);
 
-// Delete factory (Admin only)
-router.delete(
-  '/:id',
-  checkRole([USER_ROLES.ADMIN]),
-  factoryController.deleteFactory
-);
-
-// Get factory statistics (All roles)
-router.get('/:id/stats', factoryController.getFactoryStats);
+// Delete factory - admin only
+router.delete('/:id', authorize('admin'), factoryController.deleteFactory);
 
 module.exports = router;

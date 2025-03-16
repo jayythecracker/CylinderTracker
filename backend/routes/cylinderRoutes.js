@@ -1,55 +1,30 @@
 const express = require('express');
-const cylinderController = require('../controllers/cylinderController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const cylinderController = require('../controllers/cylinderController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Get all cylinders (All roles)
+// Get all cylinders - all authenticated users
 router.get('/', cylinderController.getAllCylinders);
 
-// Get cylinder by ID (All roles)
+// Get cylinder by ID - all authenticated users
 router.get('/:id', cylinderController.getCylinderById);
 
-// Get cylinder by QR code (All roles)
-router.get('/qr/:qrCode', cylinderController.getCylinderByQR);
+// Get cylinder by QR code - all authenticated users
+router.get('/qr/:qrCode', cylinderController.getCylinderByQRCode);
 
-// Create cylinder (Admin, Manager)
-router.post(
-  '/',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  cylinderController.createCylinder
-);
+// Create new cylinder - admin and manager only
+router.post('/', authorize(['admin', 'manager']), cylinderController.createCylinder);
 
-// Update cylinder (Admin, Manager)
-router.put(
-  '/:id',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  cylinderController.updateCylinder
-);
+// Update cylinder - admin and manager only
+router.put('/:id', authorize(['admin', 'manager']), cylinderController.updateCylinder);
 
-// Delete cylinder (Admin only)
-router.delete(
-  '/:id',
-  checkRole([USER_ROLES.ADMIN]),
-  cylinderController.deleteCylinder
-);
+// Delete cylinder - admin only
+router.delete('/:id', authorize('admin'), cylinderController.deleteCylinder);
 
-// Update cylinder status (All roles)
-router.patch(
-  '/:id/status',
-  cylinderController.updateCylinderStatus
-);
-
-// Batch update cylinder status (Filler, Manager, Admin)
-router.post(
-  '/batch-update',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.FILLER]),
-  cylinderController.batchUpdateStatus
-);
+// Update cylinder status - admin, manager, filler
+router.put('/:id/status', authorize(['admin', 'manager', 'filler']), cylinderController.updateCylinderStatus);
 
 module.exports = router;

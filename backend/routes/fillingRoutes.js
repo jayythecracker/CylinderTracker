@@ -1,66 +1,36 @@
 const express = require('express');
-const fillingController = require('../controllers/fillingController');
-const { auth } = require('../middleware/auth');
-const { checkRole } = require('../middleware/roleCheck');
-const { USER_ROLES } = require('../models/User');
-
 const router = express.Router();
+const fillingController = require('../controllers/fillingController');
+const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
-// Get all filling lines (All roles)
+// Get all filling lines - all authenticated users
 router.get('/lines', fillingController.getAllFillingLines);
 
-// Get filling line by ID (All roles)
+// Get filling line by ID - all authenticated users
 router.get('/lines/:id', fillingController.getFillingLineById);
 
-// Create filling line (Admin, Manager)
-router.post(
-  '/lines',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  fillingController.createFillingLine
-);
+// Create new filling line - admin and manager only
+router.post('/lines', authorize(['admin', 'manager']), fillingController.createFillingLine);
 
-// Update filling line (Admin, Manager)
-router.put(
-  '/lines/:id',
-  checkRole([USER_ROLES.ADMIN, USER_ROLES.MANAGER]),
-  fillingController.updateFillingLine
-);
+// Update filling line - admin and manager only
+router.put('/lines/:id', authorize(['admin', 'manager']), fillingController.updateFillingLine);
 
-// Start filling session (Filler, Manager, Admin)
-router.post(
-  '/sessions',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  fillingController.startFillingSession
-);
+// Delete filling line - admin only
+router.delete('/lines/:id', authorize('admin'), fillingController.deleteFillingLine);
 
-// Add cylinder to filling session (Filler, Manager, Admin)
-router.post(
-  '/sessions/cylinders',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  fillingController.addCylinderToSession
-);
+// Get all filling batches - all authenticated users
+router.get('/batches', fillingController.getAllFillingBatches);
 
-// Update cylinder filling status (Filler, Manager, Admin)
-router.patch(
-  '/sessions/cylinders/:id',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  fillingController.updateCylinderFilling
-);
+// Get filling batch by ID - all authenticated users
+router.get('/batches/:id', fillingController.getFillingBatchById);
 
-// End filling session (Filler, Manager, Admin)
-router.patch(
-  '/sessions/:id/end',
-  checkRole([USER_ROLES.FILLER, USER_ROLES.MANAGER, USER_ROLES.ADMIN]),
-  fillingController.endFillingSession
-);
+// Start new filling batch - admin, manager, filler
+router.post('/batches', authorize(['admin', 'manager', 'filler']), fillingController.startFillingBatch);
 
-// Get session details (All roles)
-router.get('/sessions/:id', fillingController.getSessionDetails);
-
-// Get filling sessions list (All roles)
-router.get('/sessions', fillingController.getFillingSessionsList);
+// Complete filling batch - admin, manager, filler
+router.put('/batches/:id/complete', authorize(['admin', 'manager', 'filler']), fillingController.completeFillingBatch);
 
 module.exports = router;

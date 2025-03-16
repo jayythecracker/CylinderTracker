@@ -1,143 +1,128 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 import '../models/user.dart';
-import 'storage_service.dart';
-import 'package:dio/dio.dart';
+import 'api_service.dart';
 
-class LoginResult {
-  final User user;
-  final String token;
-
-  LoginResult({required this.user, required this.token});
-}
-
-// Auth Service for handling authentication
 class AuthService {
-  final StorageService _storageService;
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'http://localhost:8000/api',
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ));
-
-  AuthService(this._storageService);
-
+  final ApiService _apiService;
+  
+  AuthService({ApiService? apiService}) 
+      : _apiService = apiService ?? ApiService();
+  
   // Login user
-  Future<LoginResult> login(String email, String password) async {
+  Future<User> login(String email, String password) async {
     try {
-      final response = await _dio.post('/auth/login', data: {
-        'email': email,
-        'password': password,
-      });
-
-      final token = response.data['token'];
-      final user = User.fromJson(response.data['user']);
-
-      // Save token to storage
-      await _storageService.saveToken(token);
-
-      return LoginResult(user: user, token: token);
-    } on DioException catch (e) {
-      String errorMessage = 'Login failed';
-      
-      if (e.response != null) {
-        // Server responded with an error
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('message')) {
-          errorMessage = data['message'];
-        } else {
-          errorMessage = 'Server error: ${e.response!.statusCode}';
-        }
-      } else if (e.type == DioExceptionType.connectionTimeout || 
-                 e.type == DioExceptionType.receiveTimeout) {
-        errorMessage = 'Connection timeout. Please check your internet connection.';
-      } else if (e.type == DioExceptionType.connectionError) {
-        errorMessage = 'No internet connection. Please check your network.';
-      }
-      
-      throw Exception(errorMessage);
-    }
-  }
-
-  // Get current user
-  Future<User> getCurrentUser() async {
-    try {
-      final token = await _storageService.getToken();
-      
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-      
-      final response = await _dio.get(
-        '/auth/me',
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
+      final response = await _apiService.post(
+        AppConfig.loginEndpoint,
+        data: {
+          'email': email,
+          'password': password,
+        },
       );
-
-      return User.fromJson(response.data['user']);
-    } on DioException catch (e) {
-      String errorMessage = 'Failed to get user data';
       
-      if (e.response != null) {
-        if (e.response!.statusCode == 401) {
-          // Token expired or invalid
-          await _storageService.deleteToken();
-          throw Exception('Session expired. Please login again.');
-        }
-        
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('message')) {
-          errorMessage = data['message'];
-        }
-      }
+      final token = response['token'];
+      final user = User.fromJson(response['user']);
       
-      throw Exception(errorMessage);
+      // Save token and user to shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConfig.tokenKey, token);
+      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
+      
+      return user;
+    } catch (e) {
+      rethrow;
     }
   }
-
+  
+  // Get current user from shared preferences
+  Future<User?> getCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString(AppConfig.userKey);
+      
+      if (userJson == null) return null;
+      
+      return User.fromJson(json.decode(userJson));
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  // Get user profile from API
+  Future<User> getUserProfile() async {
+    try {
+      final response = await _apiService.get(AppConfig.profileEndpoint);
+      final user = User.fromJson(response['user']);
+      
+      // Update user in shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
+      
+      return user;
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  // Update user profile
+  Future<User> updateProfile(String name, String? contactNumber, String? address) async {
+    try {
+      final response = await _apiService.put(
+        AppConfig.profileEndpoint,
+        data: {
+          'name': name,
+          'contactNumber': contactNumber,
+          'address': address,
+        },
+      );
+      
+      final user = User.fromJson(response['user']);
+      
+      // Update user in shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConfig.userKey, json.encode(user.toJson()));
+      
+      return user;
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
   // Change password
   Future<void> changePassword(String currentPassword, String newPassword) async {
     try {
-      final token = await _storageService.getToken();
-      
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-      
-      await _dio.post(
-        '/auth/change-password',
+      await _apiService.put(
+        AppConfig.changePasswordEndpoint,
         data: {
           'currentPassword': currentPassword,
           'newPassword': newPassword,
         },
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
       );
-    } on DioException catch (e) {
-      String errorMessage = 'Failed to change password';
-      
-      if (e.response != null) {
-        final data = e.response!.data;
-        if (data is Map && data.containsKey('message')) {
-          errorMessage = data['message'];
-        }
-      }
-      
-      throw Exception(errorMessage);
+    } catch (e) {
+      rethrow;
     }
   }
-
+  
   // Logout user
   Future<void> logout() async {
-    await _storageService.deleteToken();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(AppConfig.tokenKey);
+      await prefs.remove(AppConfig.userKey);
+    } catch (e) {
+      rethrow;
+    }
   }
-
-  // Get token from storage
-  Future<String?> getToken() async {
-    return await _storageService.getToken();
+  
+  // Check if user is logged in
+  Future<bool> isLoggedIn() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(AppConfig.tokenKey);
+      return token != null;
+    } catch (e) {
+      return false;
+    }
   }
 }

@@ -1,212 +1,126 @@
-const { Factory } = require('../models/Factory');
-const { Cylinder } = require('../models/Cylinder');
-const { Op } = require('sequelize');
+const Factory = require('../models/factory');
 
 // Get all factories
-exports.getAllFactories = async (req, res) => {
+const getAllFactories = async (req, res) => {
   try {
-    const { search } = req.query;
-    let whereClause = {};
-
-    // Search by name or location if provided
-    if (search) {
-      whereClause = {
-        [Op.or]: [
-          { name: { [Op.iLike]: `%${search}%` } },
-          { location: { [Op.iLike]: `%${search}%` } }
-        ]
-      };
-    }
-
     const factories = await Factory.findAll({
-      where: whereClause,
-      order: [['name', 'ASC']]
+      where: { isActive: true }
     });
-
+    
     res.status(200).json({ factories });
   } catch (error) {
     console.error('Get all factories error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching factories' });
   }
 };
 
 // Get factory by ID
-exports.getFactoryById = async (req, res) => {
+const getFactoryById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const factoryId = req.params.id;
     
-    const factory = await Factory.findByPk(id);
+    const factory = await Factory.findOne({
+      where: { id: factoryId, isActive: true }
+    });
+    
     if (!factory) {
       return res.status(404).json({ message: 'Factory not found' });
     }
-
-    // Get cylinder count for this factory
-    const cylinderCount = await Cylinder.count({ where: { factoryId: id } });
-
-    res.status(200).json({ 
-      factory,
-      cylinderCount 
-    });
+    
+    res.status(200).json({ factory });
   } catch (error) {
     console.error('Get factory by ID error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while fetching factory' });
   }
 };
 
-// Create factory
-exports.createFactory = async (req, res) => {
+// Create new factory
+const createFactory = async (req, res) => {
   try {
-    const {
-      name,
-      location,
-      contact,
-      email,
-      description
-    } = req.body;
-
+    const { name, location, contactPerson, contactEmail, contactPhone } = req.body;
+    
     // Validate required fields
     if (!name || !location) {
-      return res.status(400).json({ message: 'Please provide name and location' });
+      return res.status(400).json({ message: 'Name and location are required' });
     }
-
-    // Check if factory with the same name already exists
-    const existingFactory = await Factory.findOne({ where: { name } });
-    if (existingFactory) {
-      return res.status(400).json({ message: 'Factory with this name already exists' });
-    }
-
-    // Create factory
-    const factory = await Factory.create({
+    
+    // Create new factory
+    const newFactory = await Factory.create({
       name,
       location,
-      contact: contact || '',
-      email: email || null,
-      description: description || ''
+      contactPerson,
+      contactEmail,
+      contactPhone
     });
-
+    
     res.status(201).json({
       message: 'Factory created successfully',
-      factory
+      factory: newFactory
     });
   } catch (error) {
     console.error('Create factory error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while creating factory' });
   }
 };
 
 // Update factory
-exports.updateFactory = async (req, res) => {
+const updateFactory = async (req, res) => {
   try {
-    const { id } = req.params;
-    const {
-      name,
-      location,
-      contact,
-      email,
-      isActive,
-      description
-    } = req.body;
-
-    // Find factory
-    const factory = await Factory.findByPk(id);
+    const factoryId = req.params.id;
+    const { name, location, contactPerson, contactEmail, contactPhone } = req.body;
+    
+    const factory = await Factory.findOne({
+      where: { id: factoryId, isActive: true }
+    });
+    
     if (!factory) {
       return res.status(404).json({ message: 'Factory not found' });
     }
-
-    // If name is changing, check for duplicates
-    if (name && name !== factory.name) {
-      const existingFactory = await Factory.findOne({ where: { name } });
-      if (existingFactory && existingFactory.id !== parseInt(id)) {
-        return res.status(400).json({ message: 'Factory with this name already exists' });
-      }
-      factory.name = name;
-    }
-
-    // Update fields
+    
+    // Update fields if provided
+    if (name) factory.name = name;
     if (location) factory.location = location;
-    if (contact !== undefined) factory.contact = contact;
-    if (email !== undefined) factory.email = email;
-    if (isActive !== undefined) factory.isActive = isActive;
-    if (description !== undefined) factory.description = description;
-
+    if (contactPerson !== undefined) factory.contactPerson = contactPerson;
+    if (contactEmail !== undefined) factory.contactEmail = contactEmail;
+    if (contactPhone !== undefined) factory.contactPhone = contactPhone;
+    
     await factory.save();
-
+    
     res.status(200).json({
       message: 'Factory updated successfully',
       factory
     });
   } catch (error) {
     console.error('Update factory error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while updating factory' });
   }
 };
 
-// Delete factory
-exports.deleteFactory = async (req, res) => {
+// Delete factory (soft delete by setting isActive to false)
+const deleteFactory = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Find factory
-    const factory = await Factory.findByPk(id);
+    const factoryId = req.params.id;
+    
+    const factory = await Factory.findByPk(factoryId);
     if (!factory) {
       return res.status(404).json({ message: 'Factory not found' });
     }
-
-    // Check if factory has associated cylinders
-    const cylinderCount = await Cylinder.count({ where: { factoryId: id } });
-    if (cylinderCount > 0) {
-      return res.status(400).json({ 
-        message: 'Cannot delete factory with associated cylinders',
-        cylinderCount
-      });
-    }
-
-    await factory.destroy();
+    
+    // Soft delete
+    factory.isActive = false;
+    await factory.save();
+    
     res.status(200).json({ message: 'Factory deleted successfully' });
   } catch (error) {
     console.error('Delete factory error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error while deleting factory' });
   }
 };
 
-// Get factory statistics
-exports.getFactoryStats = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Find factory
-    const factory = await Factory.findByPk(id);
-    if (!factory) {
-      return res.status(404).json({ message: 'Factory not found' });
-    }
-
-    // Get cylinder counts by status
-    const cylinders = await Cylinder.findAll({
-      where: { factoryId: id },
-      attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['status']
-    });
-
-    // Get cylinder counts by type
-    const cylinderTypes = await Cylinder.findAll({
-      where: { factoryId: id },
-      attributes: ['type', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['type']
-    });
-
-    res.status(200).json({
-      factory: {
-        id: factory.id,
-        name: factory.name
-      },
-      stats: {
-        statusCounts: cylinders,
-        typeCounts: cylinderTypes,
-        totalCylinders: cylinders.reduce((acc, item) => acc + parseInt(item.dataValues.count), 0)
-      }
-    });
-  } catch (error) {
-    console.error('Get factory stats error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+module.exports = {
+  getAllFactories,
+  getFactoryById,
+  createFactory,
+  updateFactory,
+  deleteFactory
 };

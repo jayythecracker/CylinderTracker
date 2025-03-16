@@ -1,84 +1,86 @@
-// Factory model
 class Factory {
   final int id;
   final String name;
   final String location;
-  final String? contact;
-  final String? email;
+  final String? contactPerson;
+  final String? contactEmail;
+  final String? contactPhone;
   final bool isActive;
-  final String? description;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final int? cylinderCount; // For displaying cylinder count
 
-  const Factory({
+  Factory({
     required this.id,
     required this.name,
     required this.location,
-    this.contact,
-    this.email,
+    this.contactPerson,
+    this.contactEmail,
+    this.contactPhone,
     required this.isActive,
-    this.description,
     required this.createdAt,
     required this.updatedAt,
-    this.cylinderCount,
   });
 
-  // Factory constructor to create Factory from JSON
   factory Factory.fromJson(Map<String, dynamic> json) {
     return Factory(
       id: json['id'],
       name: json['name'],
       location: json['location'],
-      contact: json['contact'],
-      email: json['email'],
-      isActive: json['isActive'] ?? true,
-      description: json['description'],
+      contactPerson: json['contactPerson'],
+      contactEmail: json['contactEmail'],
+      contactPhone: json['contactPhone'],
+      isActive: json['isActive'],
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
-      cylinderCount: json['cylinderCount'],
     );
   }
 
-  // Convert Factory to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'location': location,
-      'contact': contact,
-      'email': email,
+      'contactPerson': contactPerson,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
       'isActive': isActive,
-      'description': description,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  // Create a copy of the factory with updated fields
+  // For creating a new factory
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'name': name,
+      'location': location,
+      'contactPerson': contactPerson,
+      'contactEmail': contactEmail,
+      'contactPhone': contactPhone,
+    };
+  }
+
   Factory copyWith({
     int? id,
     String? name,
     String? location,
-    String? contact,
-    String? email,
+    String? contactPerson,
+    String? contactEmail,
+    String? contactPhone,
     bool? isActive,
-    String? description,
     DateTime? createdAt,
     DateTime? updatedAt,
-    int? cylinderCount,
   }) {
     return Factory(
       id: id ?? this.id,
       name: name ?? this.name,
       location: location ?? this.location,
-      contact: contact ?? this.contact,
-      email: email ?? this.email,
+      contactPerson: contactPerson ?? this.contactPerson,
+      contactEmail: contactEmail ?? this.contactEmail,
+      contactPhone: contactPhone ?? this.contactPhone,
       isActive: isActive ?? this.isActive,
-      description: description ?? this.description,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      cylinderCount: cylinderCount ?? this.cylinderCount,
     );
   }
 }

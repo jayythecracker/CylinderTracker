@@ -1,259 +1,151 @@
-// Cylinder model
+import 'factory.dart';
+
 class Cylinder {
   final int id;
   final String serialNumber;
-  final double size;
+  final String qrCode;
+  final String size;
   final DateTime? importDate;
-  final DateTime? productionDate;
+  final DateTime productionDate;
   final String? originalNumber;
   final double workingPressure;
   final double designPressure;
-  final CylinderType type;
-  final CylinderStatus status;
-  final DateTime? lastFilled;
-  final DateTime? lastInspected;
+  final String gasType;
+  final String status;
+  final DateTime? lastFilledDate;
+  final DateTime? lastInspectionDate;
   final int factoryId;
-  final String? factoryName;  // For displaying factory info
+  final int? currentCustomerId;
   final bool isActive;
-  final String? notes;
-  final String qrCode;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final Factory? factory;
 
-  const Cylinder({
+  Cylinder({
     required this.id,
     required this.serialNumber,
+    required this.qrCode,
     required this.size,
     this.importDate,
-    this.productionDate,
+    required this.productionDate,
     this.originalNumber,
     required this.workingPressure,
     required this.designPressure,
-    required this.type,
+    required this.gasType,
     required this.status,
-    this.lastFilled,
-    this.lastInspected,
+    this.lastFilledDate,
+    this.lastInspectionDate,
     required this.factoryId,
-    this.factoryName,
+    this.currentCustomerId,
     required this.isActive,
-    this.notes,
-    required this.qrCode,
     required this.createdAt,
     required this.updatedAt,
+    this.factory,
   });
 
-  // Factory constructor to create Cylinder from JSON
   factory Cylinder.fromJson(Map<String, dynamic> json) {
-    // Handle the case where factory is included in the response
-    final factory = json['factory'];
-    final factoryName = factory != null ? factory['name'] : null;
-
     return Cylinder(
       id: json['id'],
       serialNumber: json['serialNumber'],
-      size: json['size'] is int ? json['size'].toDouble() : json['size'],
-      importDate: json['importDate'] != null ? DateTime.parse(json['importDate']) : null,
-      productionDate: json['productionDate'] != null ? DateTime.parse(json['productionDate']) : null,
-      originalNumber: json['originalNumber'],
-      workingPressure: json['workingPressure'] is int ? json['workingPressure'].toDouble() : json['workingPressure'],
-      designPressure: json['designPressure'] is int ? json['designPressure'].toDouble() : json['designPressure'],
-      type: _parseCylinderType(json['type']),
-      status: _parseCylinderStatus(json['status']),
-      lastFilled: json['lastFilled'] != null ? DateTime.parse(json['lastFilled']) : null,
-      lastInspected: json['lastInspected'] != null ? DateTime.parse(json['lastInspected']) : null,
-      factoryId: json['factoryId'],
-      factoryName: factoryName,
-      isActive: json['isActive'] ?? true,
-      notes: json['notes'],
       qrCode: json['qrCode'],
+      size: json['size'],
+      importDate: json['importDate'] != null ? DateTime.parse(json['importDate']) : null,
+      productionDate: DateTime.parse(json['productionDate']),
+      originalNumber: json['originalNumber'],
+      workingPressure: json['workingPressure'].toDouble(),
+      designPressure: json['designPressure'].toDouble(),
+      gasType: json['gasType'],
+      status: json['status'],
+      lastFilledDate: json['lastFilledDate'] != null ? DateTime.parse(json['lastFilledDate']) : null,
+      lastInspectionDate: json['lastInspectionDate'] != null ? DateTime.parse(json['lastInspectionDate']) : null,
+      factoryId: json['factoryId'],
+      currentCustomerId: json['currentCustomerId'],
+      isActive: json['isActive'],
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
+      factory: json['Factory'] != null ? Factory.fromJson(json['Factory']) : null,
     );
   }
 
-  // Convert Cylinder to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'serialNumber': serialNumber,
+      'qrCode': qrCode,
       'size': size,
       'importDate': importDate?.toIso8601String(),
-      'productionDate': productionDate?.toIso8601String(),
+      'productionDate': productionDate.toIso8601String(),
       'originalNumber': originalNumber,
       'workingPressure': workingPressure,
       'designPressure': designPressure,
-      'type': type.name,
-      'status': status.name,
-      'lastFilled': lastFilled?.toIso8601String(),
-      'lastInspected': lastInspected?.toIso8601String(),
+      'gasType': gasType,
+      'status': status,
+      'lastFilledDate': lastFilledDate?.toIso8601String(),
+      'lastInspectionDate': lastInspectionDate?.toIso8601String(),
       'factoryId': factoryId,
+      'currentCustomerId': currentCustomerId,
       'isActive': isActive,
-      'notes': notes,
-      'qrCode': qrCode,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
 
-  // Create a copy of the cylinder with updated fields
+  // For creating a new cylinder
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'serialNumber': serialNumber,
+      'size': size,
+      'importDate': importDate?.toIso8601String(),
+      'productionDate': productionDate.toIso8601String(),
+      'originalNumber': originalNumber,
+      'workingPressure': workingPressure,
+      'designPressure': designPressure,
+      'gasType': gasType,
+      'factoryId': factoryId,
+    };
+  }
+
   Cylinder copyWith({
     int? id,
     String? serialNumber,
-    double? size,
+    String? qrCode,
+    String? size,
     DateTime? importDate,
     DateTime? productionDate,
     String? originalNumber,
     double? workingPressure,
     double? designPressure,
-    CylinderType? type,
-    CylinderStatus? status,
-    DateTime? lastFilled,
-    DateTime? lastInspected,
+    String? gasType,
+    String? status,
+    DateTime? lastFilledDate,
+    DateTime? lastInspectionDate,
     int? factoryId,
-    String? factoryName,
+    int? currentCustomerId,
     bool? isActive,
-    String? notes,
-    String? qrCode,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Factory? factory,
   }) {
     return Cylinder(
       id: id ?? this.id,
       serialNumber: serialNumber ?? this.serialNumber,
+      qrCode: qrCode ?? this.qrCode,
       size: size ?? this.size,
       importDate: importDate ?? this.importDate,
       productionDate: productionDate ?? this.productionDate,
       originalNumber: originalNumber ?? this.originalNumber,
       workingPressure: workingPressure ?? this.workingPressure,
       designPressure: designPressure ?? this.designPressure,
-      type: type ?? this.type,
+      gasType: gasType ?? this.gasType,
       status: status ?? this.status,
-      lastFilled: lastFilled ?? this.lastFilled,
-      lastInspected: lastInspected ?? this.lastInspected,
+      lastFilledDate: lastFilledDate ?? this.lastFilledDate,
+      lastInspectionDate: lastInspectionDate ?? this.lastInspectionDate,
       factoryId: factoryId ?? this.factoryId,
-      factoryName: factoryName ?? this.factoryName,
+      currentCustomerId: currentCustomerId ?? this.currentCustomerId,
       isActive: isActive ?? this.isActive,
-      notes: notes ?? this.notes,
-      qrCode: qrCode ?? this.qrCode,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      factory: factory ?? this.factory,
     );
   }
-
-  // Parse cylinder type from string
-  static CylinderType _parseCylinderType(String type) {
-    switch (type) {
-      case 'medical':
-        return CylinderType.medical;
-      case 'industrial':
-        return CylinderType.industrial;
-      default:
-        return CylinderType.industrial;
-    }
-  }
-
-  // Parse cylinder status from string
-  static CylinderStatus _parseCylinderStatus(String status) {
-    switch (status) {
-      case 'empty':
-        return CylinderStatus.empty;
-      case 'filled':
-        return CylinderStatus.filled;
-      case 'inspection':
-        return CylinderStatus.inspection;
-      case 'error':
-        return CylinderStatus.error;
-      case 'maintenance':
-        return CylinderStatus.maintenance;
-      default:
-        return CylinderStatus.empty;
-    }
-  }
 }
-
-// Enum for cylinder types
-enum CylinderType {
-  medical,
-  industrial
-}
-
-// Extension to get string representation of the type
-extension CylinderTypeExtension on CylinderType {
-  String get name {
-    switch (this) {
-      case CylinderType.medical:
-        return 'medical';
-      case CylinderType.industrial:
-        return 'industrial';
-    }
-  }
-
-  String get displayName {
-    switch (this) {
-      case CylinderType.medical:
-        return 'Medical';
-      case CylinderType.industrial:
-        return 'Industrial';
-    }
-  }
-}
-
-// Enum for cylinder statuses
-enum CylinderStatus {
-  empty,
-  filled,
-  inspection,
-  error,
-  maintenance
-}
-
-// Extension to get string representation of the status
-extension CylinderStatusExtension on CylinderStatus {
-  String get name {
-    switch (this) {
-      case CylinderStatus.empty:
-        return 'empty';
-      case CylinderStatus.filled:
-        return 'filled';
-      case CylinderStatus.inspection:
-        return 'inspection';
-      case CylinderStatus.error:
-        return 'error';
-      case CylinderStatus.maintenance:
-        return 'maintenance';
-    }
-  }
-
-  String get displayName {
-    switch (this) {
-      case CylinderStatus.empty:
-        return 'Empty';
-      case CylinderStatus.filled:
-        return 'Filled';
-      case CylinderStatus.inspection:
-        return 'In Inspection';
-      case CylinderStatus.error:
-        return 'Error';
-      case CylinderStatus.maintenance:
-        return 'In Maintenance';
-    }
-  }
-
-  // Get color associated with the status
-  Color get color {
-    switch (this) {
-      case CylinderStatus.empty:
-        return Colors.grey;
-      case CylinderStatus.filled:
-        return Colors.green;
-      case CylinderStatus.inspection:
-        return Colors.blue;
-      case CylinderStatus.error:
-        return Colors.red;
-      case CylinderStatus.maintenance:
-        return Colors.orange;
-    }
-  }
-}
-
-import 'package:flutter/material.dart';

@@ -1,44 +1,30 @@
-const { Sequelize } = require('sequelize');
+const { Pool } = require('pg');
+const { drizzle } = require('drizzle-orm/node-postgres');
+const dotenv = require('dotenv');
 
-// Get database credentials from environment variables
-const host = process.env.PGHOST || 'localhost';
-const port = process.env.PGPORT || 5432;
-const database = process.env.PGDATABASE || 'cylinder_management';
-const username = process.env.PGUSER || 'postgres';
-const password = process.env.PGPASSWORD || 'postgres';
+// Load environment variables
+dotenv.config();
 
-// Create Sequelize instance
-const sequelize = new Sequelize({
-  host,
-  port,
-  database,
-  username,
-  password,
-  dialect: 'postgres',
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
-  pool: {
-    max: 10,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
-  }
+// Create a connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
 
-// Alternative connection method using DATABASE_URL if provided
-if (process.env.DATABASE_URL) {
-  console.log('Using DATABASE_URL for connection');
-  sequelize = new Sequelize(process.env.DATABASE_URL, {
-    dialect: 'postgres',
-    protocol: 'postgres',
-    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false
-      }
-    }
-  });
+// Test database connection
+async function testConnection() {
+  try {
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW()');
+    console.log('Database connection successful at', result.rows[0].now);
+    client.release();
+    return true;
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+    return false;
+  }
 }
 
-module.exports = {
-  sequelize
-};
+module.exports = { pool, drizzle, testConnection };
