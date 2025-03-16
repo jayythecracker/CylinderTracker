@@ -107,6 +107,7 @@ class Cylinder {
     String? serialNumber,
     String? size,
     String? type,
+    String? gasType,
     DateTime? importDate,
     DateTime? productionDate,
     String? originalNumber,
@@ -121,12 +122,14 @@ class Cylinder {
     DateTime? createdAt,
     DateTime? updatedAt,
     Factory? factory,
+    CylinderType? cylinderType,
   }) {
     return Cylinder(
       id: id ?? this.id,
       serialNumber: serialNumber ?? this.serialNumber,
       size: size ?? this.size,
       type: type ?? this.type,
+      gasType: gasType ?? this.gasType,
       importDate: importDate ?? this.importDate,
       productionDate: productionDate ?? this.productionDate,
       originalNumber: originalNumber ?? this.originalNumber,
@@ -141,6 +144,7 @@ class Cylinder {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       factory: factory ?? this.factory,
+      cylinderType: cylinderType ?? this.cylinderType,
     );
   }
 
@@ -151,6 +155,7 @@ class Cylinder {
       serialNumber: '',
       size: '',
       type: 'Industrial',
+      gasType: 'Oxygen',
       productionDate: DateTime.now(),
       workingPressure: 0.0,
       designPressure: 0.0,

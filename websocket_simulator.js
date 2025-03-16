@@ -1,159 +1,211 @@
+// WebSocket Event Simulator for Cylinder Management System
+// This script simulates WebSocket events to test real-time functionality
+// Usage: node websocket_simulator.js
+
 const WebSocket = require('ws');
 const readline = require('readline');
 
-// Create WebSocket connection
-const ws = new WebSocket('ws://0.0.0.0:5000/ws');
-
-// Create readline interface for user input
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-// Sample data for various events
-const sampleEvents = {
-  cylinderStatusUpdated: {
-    id: 123,
-    status: 'Full',
-    notes: 'Filled and ready for delivery'
-  },
-  fillingStarted: {
-    id: 456,
-    cylinderId: 123,
-    filledBy: 'John Doe',
-    startTime: new Date().toISOString(),
-    gasType: 'Oxygen'
-  },
-  fillingCompleted: {
-    id: 456,
-    cylinderId: 123,
-    filledBy: 'John Doe',
-    startTime: new Date(Date.now() - 3600000).toISOString(),
-    endTime: new Date().toISOString(),
-    gasType: 'Oxygen',
-    quantity: 10.5,
-    status: 'Completed'
-  },
-  inspectionCompleted: {
-    id: 789,
-    cylinderId: 123,
-    inspectedBy: 'Jane Smith',
-    inspectionDate: new Date().toISOString(),
-    result: 'Approved',
-    notes: 'Passed all safety checks'
-  },
-  saleCreated: {
-    id: 101,
-    customerId: 202,
-    customerName: 'Acme Hospital',
-    totalAmount: 1250,
-    status: 'Pending',
-    paymentStatus: 'Unpaid',
-    items: [
-      { cylinderId: 123, quantity: 1, unitPrice: 1250 }
-    ]
-  },
-  saleStatusUpdated: {
-    id: 101,
-    status: 'Delivered',
-    notes: 'Delivered on time'
-  },
-  custom: {
-    message: 'System maintenance scheduled for tomorrow at 2:00 AM'
-  }
+// Define a sample cylinder
+const sampleCylinder = {
+  id: 123,
+  serialNumber: 'CYL-2025-123',
+  size: 'Medium',
+  type: 'Industrial',
+  gasType: 'Oxygen',
+  importDate: '2025-01-15T00:00:00.000Z',
+  productionDate: '2025-01-01T00:00:00.000Z',
+  originalNumber: 'MFR-123-456',
+  workingPressure: 150.0,
+  designPressure: 200.0,
+  status: 'Empty',
+  factoryId: 1,
+  lastFilled: null,
+  lastInspected: '2025-02-01T00:00:00.000Z',
+  qrCode: 'QR-CYL-123',
+  notes: 'New cylinder',
+  createdAt: '2025-03-01T00:00:00.000Z',
+  updatedAt: '2025-03-01T00:00:00.000Z'
 };
 
-// Display menu options
-function showMenu() {
-  console.log('\n== Cylinder Management System WebSocket Simulator ==');
-  console.log('1. Simulate cylinder status update');
-  console.log('2. Simulate filling started');
-  console.log('3. Simulate filling completed');
-  console.log('4. Simulate inspection completed');
-  console.log('5. Simulate sale created');
-  console.log('6. Simulate sale status updated');
-  console.log('7. Send custom message');
-  console.log('0. Exit');
-  rl.question('\nSelect an option: ', handleOption);
+// Define a sample filling operation
+const sampleFillingOperation = {
+  id: 456,
+  cylinderId: 123,
+  filledById: 789,
+  fillingDate: new Date().toISOString(),
+  gasType: 'Oxygen',
+  initialPressure: 0,
+  finalPressure: 200,
+  status: 'Completed',
+  notes: 'Standard filling',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+// Define a sample inspection
+const sampleInspection = {
+  id: 789,
+  cylinderId: 123,
+  inspectionDate: new Date().toISOString(),
+  inspectedById: 789,
+  visualInspection: true,
+  pressureReading: 200,
+  result: 'Approved',
+  notes: 'Regular inspection, no issues found',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+// Define a sample sale
+const sampleSale = {
+  id: 101,
+  customerId: 202,
+  saleDate: new Date().toISOString(),
+  totalAmount: 1500.0,
+  paidAmount: 0,
+  status: 'Pending',
+  paymentStatus: 'Unpaid',
+  deliveryType: 'Delivery',
+  notes: 'Regular customer order',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+};
+
+// Connect to WebSocket server
+let serverUrl = 'ws://localhost:5000/ws';
+let ws;
+
+function connectWebSocket() {
+  ws = new WebSocket(serverUrl);
+  
+  ws.on('open', () => {
+    console.log('Connected to WebSocket server at ' + serverUrl);
+    showMenu();
+  });
+  
+  ws.on('message', (data) => {
+    console.log('Received: ' + data);
+  });
+  
+  ws.on('close', () => {
+    console.log('Disconnected from WebSocket server');
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error: ', error);
+  });
 }
 
-// Handle user selection
+// Main menu
+function showMenu() {
+  console.log('\n=== WebSocket Event Simulator ===');
+  console.log('1. Cylinder Created');
+  console.log('2. Cylinder Updated');
+  console.log('3. Cylinder Status Updated');
+  console.log('4. Filling Started');
+  console.log('5. Filling Completed');
+  console.log('6. Inspection Completed');
+  console.log('7. Sale Created');
+  console.log('8. Sale Status Updated');
+  console.log('9. Change Connection URL');
+  console.log('0. Exit');
+  
+  rl.question('Select an option: ', (answer) => {
+    handleOption(answer);
+  });
+}
+
+// Handle menu option
 function handleOption(option) {
   switch (option) {
     case '1':
-      sendEvent('cylinder_status_updated', sampleEvents.cylinderStatusUpdated);
+      sendEvent('cylinder_created', sampleCylinder);
       break;
     case '2':
-      sendEvent('filling_started', sampleEvents.fillingStarted);
+      const updatedCylinder = { ...sampleCylinder, status: 'Full', notes: 'Updated cylinder' };
+      sendEvent('cylinder_updated', updatedCylinder);
       break;
     case '3':
-      sendEvent('filling_completed', sampleEvents.fillingCompleted);
+      sendEvent('cylinder_status_updated', {
+        id: sampleCylinder.id,
+        status: 'Full',
+        notes: 'Filled and ready for delivery'
+      });
       break;
     case '4':
-      sendEvent('inspection_completed', sampleEvents.inspectionCompleted);
+      sendEvent('filling_started', {
+        ...sampleFillingOperation,
+        status: 'InProgress',
+        finalPressure: null
+      });
       break;
     case '5':
-      sendEvent('sale_created', sampleEvents.saleCreated);
+      sendEvent('filling_completed', sampleFillingOperation);
       break;
     case '6':
-      sendEvent('sale_status_updated', sampleEvents.saleStatusUpdated);
+      sendEvent('inspection_completed', sampleInspection);
       break;
     case '7':
-      rl.question('Enter custom message: ', (message) => {
-        sendEvent('custom', { message });
+      sendEvent('sale_created', sampleSale);
+      break;
+    case '8':
+      sendEvent('sale_status_updated', {
+        id: sampleSale.id,
+        status: 'Delivered',
+        notes: 'Successfully delivered to customer'
       });
-      return; // Skip showMenu call to wait for user input
+      break;
+    case '9':
+      rl.question('Enter new WebSocket URL (default: ws://localhost:5000/ws): ', (url) => {
+        serverUrl = url || 'ws://localhost:5000/ws';
+        console.log(`WebSocket URL changed to ${serverUrl}`);
+        if (ws) {
+          ws.close();
+        }
+        connectWebSocket();
+      });
+      return;
     case '0':
       console.log('Exiting...');
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
       rl.close();
-      return;
+      process.exit(0);
+      break;
     default:
-      console.log('Invalid option, please try again.');
+      console.log('Invalid option');
+      break;
   }
   
-  // Show menu again after processing option
-  setTimeout(showMenu, 500);
+  // Show menu again unless exiting
+  if (option !== '0' && option !== '9') {
+    showMenu();
+  }
 }
 
 // Send event to WebSocket server
 function sendEvent(type, data) {
-  if (ws.readyState === WebSocket.OPEN) {
-    const event = { type, data };
-    console.log(`Sending event: ${type}`);
-    ws.send(JSON.stringify(event));
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    const message = JSON.stringify({
+      type: type,
+      data: data
+    });
+    
+    ws.send(message);
+    console.log(`Sent ${type} event:`);
+    console.log(JSON.stringify(data, null, 2));
   } else {
-    console.log('WebSocket is not connected. Please wait...');
+    console.log('WebSocket not connected. Reconnecting...');
+    connectWebSocket();
   }
 }
 
-// Connection opened
-ws.on('open', function() {
-  console.log('Connected to the WebSocket server');
-  showMenu();
-});
-
-// Listen for messages
-ws.on('message', function(data) {
-  const message = JSON.parse(data.toString());
-  console.log('\nReceived from server:', message);
-  
-  // Don't show menu again if we're waiting for custom message input
-  if (message.type !== 'echo' || message.data.type !== 'custom') {
-    setTimeout(showMenu, 500);
-  }
-});
-
-// Handle errors
-ws.on('error', function(error) {
-  console.error('WebSocket error:', error);
-});
-
-// Handle connection close
-ws.on('close', function() {
-  console.log('Disconnected from the WebSocket server');
-  rl.close();
-  process.exit(0);
-});
-
-console.log('Connecting to WebSocket server...');
+// Start the program
+console.log('Starting WebSocket Event Simulator...');
+connectWebSocket();
